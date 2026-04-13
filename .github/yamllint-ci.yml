@@ -1,0 +1,7 @@
+# Relaxed rules for GitHub Actions YAML (long runs-on lines, on: truthy, etc.)
+extends: default
+
+rules:
+  line-length: disable
+  truthy: disable
+  document-start: disable

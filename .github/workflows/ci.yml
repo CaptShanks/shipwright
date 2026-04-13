@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate marketplace.json
+        run: python3 scripts/ci_validate.py marketplace
+
+      - name: Validate plugin structure
+        run: python3 scripts/ci_validate.py plugins
+
+      - name: Validate agent definitions
+        run: python3 scripts/ci_validate.py agents
+
+      - name: Validate skill definitions
+        run: python3 scripts/ci_validate.py skills
+
+      - name: Validate symlinks
+        run: python3 scripts/ci_validate.py symlinks
+
+      - name: Install PyYAML for action validation
+        run: pip install pyyaml
+
+      - name: Validate action definitions
+        run: python3 scripts/ci_validate.py actions
+
+  yaml-lint:
+    name: YAML lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Run yamllint
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find .github/workflows actions \( -name '*.yml' -o -name '*.yaml' \) -type f | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No YAML files found under .github/workflows or actions/"
+            exit 1
+          fi
+          yamllint -c .github/yamllint-ci.yml "${files[@]}"
+
+  markdown-lint:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli
+
+      - name: Run markdownlint
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(
+            find . \( -name .git -o -name node_modules \) -prune -o -name '*.md' -type f -print | sort
+          )
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No .md files found (excluding node_modules)."
+            exit 0
+          fi
+          markdownlint --config .github/markdownlint-ci.json "${files[@]}"
