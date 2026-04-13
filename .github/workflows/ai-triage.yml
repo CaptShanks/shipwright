@@ -1,0 +1,353 @@
+name: AI issue triage
+
+on:
+  workflow_call:
+    inputs:
+      ai-provider:
+        description: AI provider to use
+        type: string
+        default: codex
+      project-context-path:
+        description: Path to project knowledge base
+        type: string
+        default: .github/autopilot/project-context.md
+    secrets:
+      AI_API_KEY:
+        description: API key for the AI provider
+        required: true
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout calling repository
+        uses: actions/checkout@v4
+
+      - name: Checkout Autopilot
+        uses: actions/checkout@v4
+        with:
+          repository: CaptShanks/autopilot
+          path: .autopilot
+
+      - name: Validate issue event
+        id: validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! jq -e '.issue.number' "$GITHUB_EVENT_PATH" >/dev/null 2>&1; then
+            echo '::error::This reusable workflow must be called from a caller workflow whose event includes github.event.issue (for example issues: opened).'
+            exit 1
+          fi
+          echo "issue-number=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve project context path
+        id: context
+        shell: bash
+        env:
+          CONTEXT_INPUT: ${{ inputs.project-context-path }}
+        run: |
+          set -euo pipefail
+          effective=""
+          if [[ -n "${CONTEXT_INPUT}" ]] && [[ -f "$GITHUB_WORKSPACE/${CONTEXT_INPUT}" ]]; then
+            effective="${CONTEXT_INPUT}"
+          elif [[ -n "${CONTEXT_INPUT}" ]]; then
+            echo '::notice::project-context-path was not found; continuing without injected project context.'
+          fi
+          echo "effective=${effective}" >> "$GITHUB_OUTPUT"
+
+      - name: Build triage prompt
+        id: build-prompt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import os
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as f:
+              event = json.load(f)
+          issue = event.get("issue") or {}
+          title = issue.get("title") or ""
+          body = issue.get("body") or ""
+          author = (issue.get("user") or {}).get("login") or ""
+          labels = ", ".join(
+              str(l.get("name", "")).strip()
+              for l in (issue.get("labels") or [])
+              if str(l.get("name", "")).strip()
+          )
+          number = issue.get("number")
+          prompt = (
+              f"## Issue to Triage\n\n"
+              f"**Title:** {title}\n"
+              f"**Author:** {author}\n"
+              f"**Labels:** {labels}\n\n"
+              f"**Body:**\n{body}\n\n"
+              "## Your Task\n"
+              "Analyze this issue and provide your triage assessment. Determine if this issue is:\n"
+              "1. Actionable as-is (ready for architecture/implementation)\n"
+              "2. Needs clarification (specify what questions to ask)\n"
+              "3. A duplicate (identify the original)\n"
+              "4. Invalid/out of scope\n\n"
+              "Provide your response as a JSON object with fields: decision, type, confidence, "
+              "summary, labels, next_action, clarification_questions (if applicable).\n"
+          )
+          delim = "__ISSUE_TRIAGE_PROMPT_EOF__"
+          out_path = os.environ["GITHUB_OUTPUT"]
+          with open(out_path, "a", encoding="utf-8") as out:
+              out.write(f"prompt<<{delim}\n")
+              out.write(prompt)
+              if not prompt.endswith("\n"):
+                  out.write("\n")
+              out.write(f"{delim}\n")
+              out.write(f"issue-number={number}\n")
+          PY
+
+      - name: Run triage agent
+        id: run-ai
+        continue-on-error: true
+        uses: ./.autopilot/actions/run-ai-agent
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+        with:
+          agent-role: triage
+          agent-prompt: ${{ steps.build-prompt.outputs.prompt }}
+          ai-provider: ${{ inputs.ai-provider }}
+          project-context-path: ${{ steps.context.outputs.effective }}
+
+      - name: Parse triage response
+        id: parse
+        if: always() && steps.validate.outcome == 'success' && steps.build-prompt.outcome == 'success'
+        shell: bash
+        env:
+          AGENT_RESULT: ${{ steps.run-ai.outputs.result }}
+          RUN_OUTCOME: ${{ steps.run-ai.outcome }}
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          import sys
+
+          def write_output(key: str, value: str, delim: str) -> None:
+              path = os.environ["GITHUB_OUTPUT"]
+              with open(path, "a", encoding="utf-8") as out:
+                  out.write(f"{key}<<{delim}\n")
+                  out.write(value)
+                  if not value.endswith("\n"):
+                      out.write("\n")
+                  out.write(f"{delim}\n")
+
+          def emit(
+              comment_body: str,
+              add_labels: str,
+              post_clarification: bool,
+              clarification_body: str,
+          ) -> None:
+              write_output("comment-body", comment_body, "__COMMENT_BODY__")
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+                  out.write(f"add-labels={add_labels}\n")
+                  out.write(f"post-clarification={'true' if post_clarification else 'false'}\n")
+              write_output("clarification-body", clarification_body, "__CLARIFICATION_BODY__")
+
+          def fallback_comment(title: str, detail: str, raw: str) -> None:
+              raw = raw or ""
+              clipped = raw if len(raw) <= 20000 else raw[:20000] + "\n\n…(truncated)"
+              body = (
+                  f"## {title}\n\n{detail}\n\n"
+                  f"<details><summary>Raw agent output</summary>\n\n```text\n{clipped}\n```\n</details>"
+              )
+              emit(
+                  body,
+                  "autopilot:triage-error",
+                  False,
+                  "",
+              )
+
+          result = os.environ.get("AGENT_RESULT", "") or ""
+          outcome = os.environ.get("RUN_OUTCOME", "")
+
+          if outcome != "success" and not result.strip():
+              fallback_comment(
+                  "Triage failed",
+                  "The AI agent step did not complete successfully. Please retry the workflow or triage manually.",
+                  result,
+              )
+              sys.exit(0)
+
+          def extract_json(text: str):
+              text = text.strip()
+              if not text:
+                  return None
+              try:
+                  return json.loads(text)
+              except json.JSONDecodeError:
+                  pass
+              m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+              if m:
+                  try:
+                      return json.loads(m.group(1))
+                  except json.JSONDecodeError:
+                      pass
+              start = text.find("{")
+              if start == -1:
+                  return None
+              depth = 0
+              for i, ch in enumerate(text[start:], start):
+                  if ch == "{":
+                      depth += 1
+                  elif ch == "}":
+                      depth -= 1
+                      if depth == 0:
+                          chunk = text[start : i + 1]
+                          try:
+                              return json.loads(chunk)
+                          except json.JSONDecodeError:
+                              return None
+              return None
+
+          data = extract_json(result)
+          if not isinstance(data, dict):
+              fallback_comment(
+                  "Triage parse error",
+                  "Could not extract a JSON object from the agent response.",
+                  result,
+              )
+              sys.exit(0)
+
+          decision = str(data.get("decision") or "").strip().lower().replace("_", "-")
+          raw_type = str(data.get("type") or "").strip()
+          if "|" in raw_type:
+              raw_type = raw_type.split("|")[0].strip()
+          confidence = data.get("confidence")
+          summary = str(data.get("summary") or "").strip()
+          next_action = str(data.get("next_action") or "").strip()
+          duplicate_of = data.get("duplicate_of")
+
+          label_set: list[str] = []
+          seen: set[str] = set()
+
+          def add_label(name: str) -> None:
+              name = name.strip()
+              if not name or name in seen:
+                  return
+              seen.add(name)
+              label_set.append(name)
+
+          for item in data.get("labels") or []:
+              if isinstance(item, str):
+                  add_label(item)
+
+          if raw_type:
+              add_label(f"type:{raw_type}")
+          sev = data.get("severity")
+          if isinstance(sev, str):
+              sev_norm = sev.strip().lower()
+              if sev_norm and sev_norm != "null":
+                  add_label(f"priority:{sev_norm}")
+
+          decision_label_map = {
+              "ready": "status:ready",
+              "needs-info": "status:needs-info",
+              "needs-clarification": "status:needs-info",
+              "reject": "status:rejected",
+              "duplicate": "status:duplicate",
+              "invalid": "status:invalid",
+          }
+          mapped = decision_label_map.get(decision)
+          if mapped:
+              add_label(mapped)
+
+          add_labels = ",".join(label_set)
+
+          lines = [
+              "## Autopilot triage",
+              "",
+          ]
+          if summary:
+              lines.append(f"**Summary:** {summary}")
+              lines.append("")
+          lines.extend(
+              [
+                  f"**Decision:** `{decision or 'unknown'}`",
+                  f"**Type:** `{raw_type or 'unknown'}`",
+                  f"**Confidence:** `{confidence}`",
+              ]
+          )
+          if next_action:
+              lines.append(f"**Next action:** {next_action}")
+          if duplicate_of not in (None, "", "null"):
+              lines.append(f"**Duplicate of:** {duplicate_of}")
+          lines.extend(["", "<details>", "", "```json", json.dumps(data, indent=2), "```", "", "</details>"])
+          comment_body = "\n".join(lines)
+
+          questions = data.get("clarification_questions")
+          if questions is None:
+              questions = data.get("blocking_gaps")
+          if isinstance(questions, str):
+              questions = [questions]
+          if not isinstance(questions, list):
+              questions = []
+
+          wants_clarification = decision in {"needs-info", "needs-clarification"}
+          clarification_lines = [
+              "## Clarification needed",
+              "",
+          ]
+          if any(isinstance(q, str) and q.strip() for q in questions):
+              clarification_lines.append("Please help by answering the following:")
+              clarification_lines.append("")
+              n = 0
+              for q in questions:
+                  if isinstance(q, str) and q.strip():
+                      n += 1
+                      clarification_lines.append(f"{n}. {q.strip()}")
+          elif wants_clarification:
+              clarification_lines.append(
+                  "More information is needed before this issue can be executed. "
+                  "Please review the triage summary above and supply the missing details."
+              )
+          clarification_body = "\n".join(clarification_lines) if wants_clarification else ""
+
+          emit(comment_body, add_labels, wants_clarification, clarification_body)
+          PY
+
+      - name: Post triage result comment
+        if: always() && steps.parse.outcome == 'success'
+        continue-on-error: true
+        uses: ./.autopilot/actions/post-issue-comment
+        with:
+          issue-number: ${{ steps.validate.outputs.issue-number }}
+          comment-body: ${{ steps.parse.outputs.comment-body }}
+          comment-tag: triage-result
+
+      - name: Apply triage labels
+        if: always() && steps.parse.outcome == 'success'
+        continue-on-error: true
+        uses: ./.autopilot/actions/manage-labels
+        with:
+          issue-number: ${{ steps.validate.outputs.issue-number }}
+          add-labels: ${{ steps.parse.outputs.add-labels }}
+
+      - name: Post clarification questions
+        if: >-
+          always() &&
+          steps.parse.outcome == 'success' &&
+          steps.parse.outputs.post-clarification == 'true'
+        continue-on-error: true
+        uses: ./.autopilot/actions/post-issue-comment
+        with:
+          issue-number: ${{ steps.validate.outputs.issue-number }}
+          comment-body: ${{ steps.parse.outputs.clarification-body }}
+          comment-tag: triage-clarification
+
+      - name: Report triage agent failure
+        if: always() && steps.run-ai.outcome != 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '::warning::Triage agent step did not succeed; check logs and the issue thread for any fallback comment.'

@@ -1,0 +1,378 @@
+name: AI implement (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      ai-provider:
+        description: AI provider to use.
+        type: string
+        default: codex
+      project-context-path:
+        description: Path to project knowledge base (relative to repository root).
+        type: string
+        default: .github/autopilot/project-context.md
+      target-branch:
+        description: Branch to create PRs against.
+        type: string
+        default: dev
+      issue-number:
+        description: The issue number to implement.
+        type: string
+        required: true
+    secrets:
+      AI_API_KEY:
+        description: API key for the configured AI provider (e.g. OpenAI for Codex).
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  architect:
+    runs-on: ubuntu-latest
+    outputs:
+      architecture-result: ${{ steps.architect-agent.outputs.result }}
+      issue-title: ${{ steps.fetch-issue.outputs.title }}
+    env:
+      AI_API_KEY: ${{ secrets.AI_API_KEY }}
+    steps:
+      - name: Checkout calling repository
+        uses: actions/checkout@v4
+
+      - name: Resolve Autopilot repository and ref from workflow ref
+        id: autopilot
+        shell: bash
+        run: |
+          set -euo pipefail
+          wf_ref="${{ github.workflow_ref }}"
+          path_part="${wf_ref%@*}"
+          repo="${path_part%/.github/workflows/*}"
+          ref_part="${wf_ref#*@}"
+          if [ "$repo" = "$path_part" ]; then
+            echo "::error::Could not derive Autopilot repo from github.workflow_ref=${wf_ref}" >&2
+            exit 1
+          fi
+          echo "repository=${repo}" >> "$GITHUB_OUTPUT"
+          echo "ref=${ref_part}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Autopilot
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.autopilot.outputs.repository }}
+          path: .autopilot
+          ref: ${{ steps.autopilot.outputs.ref }}
+
+      - name: Fetch issue details
+        id: fetch-issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          ISSUE="${{ inputs.issue-number }}"
+          mkdir -p .autopilot-issue
+
+          gh issue view "${ISSUE}" --repo "${REPO}" \
+            --json title,body,labels,comments,number > .autopilot-issue/issue.json
+
+          TITLE="$(jq -r '.title // empty' .autopilot-issue/issue.json)"
+          {
+            echo "title<<__TITLE_EOF__"
+            echo "${TITLE}"
+            echo "__TITLE_EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build architect prompt
+        id: architect-prompt
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo 'prompt<<__ARCH_PROMPT_EOF__'
+            echo 'You are producing a design document with an implementation plan for the following GitHub issue.'
+            echo
+            echo '## Requirements'
+            echo '- Write a clear architecture / design section.'
+            echo '- Include a concrete, ordered implementation plan (steps, files/modules likely touched, risks, and test strategy).'
+            echo '- Keep the plan actionable for an implementer agent working in this repository.'
+            echo
+            echo '## Issue metadata'
+            printf 'Repository: %s\n' "${{ github.repository }}"
+            printf 'Issue number: %s\n' "${{ inputs.issue-number }}"
+            echo
+            echo '### Title'
+            jq -r '.title // empty' .autopilot-issue/issue.json
+            echo
+            echo '### Body'
+            jq -r '.body // empty' .autopilot-issue/issue.json
+            echo
+            echo '### Labels'
+            jq -r '(.labels // []) | map(.name) | join(", ")' .autopilot-issue/issue.json
+            echo
+            echo '### Comments (oldest first)'
+            jq -r '(.comments // []) | sort_by(.createdAt) | .[] | "---\n**" + (.author.login // "unknown") + "** at " + (.createdAt // "") + ":\n\n" + (.body // "") + "\n"' .autopilot-issue/issue.json
+            echo '__ARCH_PROMPT_EOF__'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run architect agent
+        id: architect-agent
+        uses: ./.autopilot/actions/run-ai-agent
+        with:
+          ai-provider: ${{ inputs.ai-provider }}
+          agent-role: architect
+          agent-prompt: ${{ steps.architect-prompt.outputs.prompt }}
+          project-context-path: ${{ inputs.project-context-path }}
+          working-directory: .
+
+      - name: Persist architecture to disk
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const result = ${{ toJSON(steps['architect-agent'].outputs.result) }};
+            fs.mkdirSync('architecture', { recursive: true });
+            fs.writeFileSync('architecture/architecture.md', result);
+
+      - name: Upload architecture artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: autopilot-architecture
+          path: architecture/architecture.md
+
+      - name: Post architecture comment on issue
+        uses: ./.autopilot/actions/post-issue-comment
+        with:
+          issue-number: ${{ inputs.issue-number }}
+          comment-tag: architecture
+          comment-body: |
+            ## Autopilot — architecture
+
+            ${{ steps.architect-agent.outputs.result }}
+          token: ${{ github.token }}
+
+  implement:
+    needs: architect
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.branch-meta.outputs.branch }}
+      commit-sha: ${{ steps.push.outputs.sha }}
+    env:
+      AI_API_KEY: ${{ secrets.AI_API_KEY }}
+    steps:
+      - name: Checkout calling repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.target-branch }}
+          token: ${{ github.token }}
+
+      - name: Resolve Autopilot repository and ref from workflow ref
+        id: autopilot
+        shell: bash
+        run: |
+          set -euo pipefail
+          wf_ref="${{ github.workflow_ref }}"
+          path_part="${wf_ref%@*}"
+          repo="${path_part%/.github/workflows/*}"
+          ref_part="${wf_ref#*@}"
+          echo "repository=${repo}" >> "$GITHUB_OUTPUT"
+          echo "ref=${ref_part}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Autopilot
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.autopilot.outputs.repository }}
+          path: .autopilot
+          ref: ${{ steps.autopilot.outputs.ref }}
+
+      - name: Download architecture artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: autopilot-architecture
+          path: .autopilot-architecture
+
+      - name: Create feature branch
+        id: branch-meta
+        shell: bash
+        env:
+          ISSUE: ${{ inputs.issue-number }}
+        run: |
+          set -euo pipefail
+          BRANCH="autopilot/issue-${ISSUE}"
+          git checkout -b "$BRANCH"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Build implementer prompt
+        id: implementer-prompt
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCH_FILE=".autopilot-architecture/architecture.md"
+          {
+            echo 'prompt<<__IMPL_PROMPT_EOF__'
+            echo "Implement the solution for issue #${{ inputs.issue-number }} in this repository."
+            echo 'Follow the architecture and implementation plan below. Make minimal, cohesive changes; match existing project conventions.'
+            echo
+            echo '## Architecture and implementation plan'
+            cat "$ARCH_FILE"
+            echo '__IMPL_PROMPT_EOF__'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run implementer agent
+        id: implementer-agent
+        uses: ./.autopilot/actions/run-ai-agent
+        with:
+          ai-provider: ${{ inputs.ai-provider }}
+          agent-role: implementer
+          agent-prompt: ${{ steps.implementer-prompt.outputs.prompt }}
+          project-context-path: ${{ inputs.project-context-path }}
+          working-directory: .
+
+      - name: Build test-engineer prompt
+        id: test-prompt
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCH_FILE=".autopilot-architecture/architecture.md"
+          {
+            echo 'prompt<<__TEST_PROMPT_EOF__'
+            echo "Write or extend automated tests for the changes that implement issue #${{ inputs.issue-number }}."
+            echo 'Cover meaningful behavior, edge cases, and regressions suggested by the architecture.'
+            echo 'Align with the existing test frameworks and style in this repository.'
+            echo
+            echo '## Architecture and implementation plan (reference)'
+            cat "$ARCH_FILE"
+            echo '__TEST_PROMPT_EOF__'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run test-engineer agent
+        id: test-engineer-agent
+        uses: ./.autopilot/actions/run-ai-agent
+        with:
+          ai-provider: ${{ inputs.ai-provider }}
+          agent-role: test-engineer
+          agent-prompt: ${{ steps.test-prompt.outputs.prompt }}
+          project-context-path: ${{ inputs.project-context-path }}
+          working-directory: .
+
+      - name: Commit and push
+        id: push
+        shell: bash
+        env:
+          ISSUE: ${{ inputs.issue-number }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="${{ steps.branch-meta.outputs.branch }}"
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "::warning::No file changes after implementer and test-engineer runs; pushing branch anyway."
+          else
+            git add -A
+            git commit -m "feat: implement solution for #${ISSUE}"
+          fi
+
+          git push -u origin "HEAD:${BRANCH}"
+
+          SHA="$(git rev-parse HEAD)"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+
+  create-pr:
+    needs: implement
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.implement.outputs.branch }}
+          token: ${{ github.token }}
+
+      - name: Download architecture artifact (for PR body)
+        uses: actions/download-artifact@v4
+        with:
+          name: autopilot-architecture
+          path: .autopilot-architecture
+
+      - name: Resolve Autopilot repository and ref from workflow ref
+        id: autopilot
+        shell: bash
+        run: |
+          set -euo pipefail
+          wf_ref="${{ github.workflow_ref }}"
+          path_part="${wf_ref%@*}"
+          repo="${path_part%/.github/workflows/*}"
+          ref_part="${wf_ref#*@}"
+          echo "repository=${repo}" >> "$GITHUB_OUTPUT"
+          echo "ref=${ref_part}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Autopilot
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.autopilot.outputs.repository }}
+          path: .autopilot
+          ref: ${{ steps.autopilot.outputs.ref }}
+
+      - name: Ensure PR label exists
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh label create "autopilot:generated" --color "3B82F6" --description "Pull request generated by Autopilot" \
+            --repo "${{ github.repository }}" 2>/dev/null || true
+
+      - name: Open pull request
+        id: open-pr
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          ISSUE="${{ inputs.issue-number }}"
+          BASE="${{ inputs.target-branch }}"
+          HEAD="${{ needs.implement.outputs.branch }}"
+
+          TITLE="$(gh issue view "${ISSUE}" --repo "${REPO}" --json title --jq '.title')"
+          PR_TITLE="$(printf 'feat: #%s - %s' "${ISSUE}" "${TITLE}" | tr '\r\n' '  ')"
+
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          {
+            echo "## Linked issue"
+            echo
+            echo "This pull request implements #${ISSUE}."
+            echo
+            echo "## Architecture summary"
+            echo
+            head -c 12000 .autopilot-architecture/architecture.md
+            echo
+            echo "---"
+            echo
+            echo "_This pull request was opened automatically by Autopilot from workflow [\`${{ github.workflow }}\`](${WORKFLOW_URL})._"
+          } > pr-body.md
+
+          PR_URL="$(gh pr create \
+            --repo "${REPO}" \
+            --base "${BASE}" \
+            --head "${HEAD}" \
+            --title "${PR_TITLE}" \
+            --body-file pr-body.md \
+            --label "autopilot:generated")"
+
+          echo "url=${PR_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Post implementation comment on issue
+        uses: ./.autopilot/actions/post-issue-comment
+        with:
+          issue-number: ${{ inputs.issue-number }}
+          comment-tag: implementation
+          comment-body: |
+            ## Autopilot — implementation
+
+            Pull request: ${{ steps.open-pr.outputs.url }}
+          token: ${{ github.token }}

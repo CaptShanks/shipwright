@@ -1,0 +1,427 @@
+name: AI PR review
+
+on:
+  workflow_call:
+    inputs:
+      ai-provider:
+        description: AI provider to use (codex or claude)
+        type: string
+        default: codex
+      project-context-path:
+        description: Path to project knowledge base, relative to repository root (empty if file missing)
+        type: string
+        default: .github/autopilot/project-context.md
+    secrets:
+      AI_API_KEY:
+        description: API key for the selected AI provider
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  security-review:
+    runs-on: ubuntu-latest
+    env:
+      AI_API_KEY: ${{ secrets.AI_API_KEY }}
+    outputs:
+      security-summary: ${{ steps.derive.outputs.summary }}
+      security-severity: ${{ steps.derive.outputs.severity }}
+    steps:
+      - name: Resolve Autopilot repository
+        id: autopilot
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="${{ github.workflow_ref }}"
+          path="${ref%%@*}"
+          repo="${path%/.github/workflows/*}"
+          echo "repo=${repo}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Checkout Autopilot
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.autopilot.outputs.repo }}
+          path: .autopilot
+          token: ${{ github.token }}
+
+      - name: Resolve project context path
+        id: project_ctx
+        shell: bash
+        run: |
+          set -euo pipefail
+          p="${{ inputs.project-context-path }}"
+          if [ -z "${p}" ]; then
+            echo "path=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -f "${p}" ]; then
+            echo "path=${p}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::project-context-path not found at ${p}; continuing without project context"
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get PR diff
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh pr diff "${{ github.event.pull_request.number }}" > "${RUNNER_TEMP}/pr.diff"
+
+      - name: Build security-reviewer prompt
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "Review the pull request diff below for security vulnerabilities, unsafe patterns, and missing controls."
+            echo "Structure your response with clear findings and a final line exactly: **Severity overview:** <NONE|LOW|MEDIUM|HIGH|CRITICAL> (use the highest justified severity)."
+            echo
+            echo "## Unified diff"
+            echo
+            cat "${RUNNER_TEMP}/pr.diff"
+          } > "${RUNNER_TEMP}/security_prompt.md"
+
+      - name: Load prompt for agent input
+        id: security_prompt
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo 'body<<__AUTOPILOT_SECURITY_PROMPT__'
+            cat "${RUNNER_TEMP}/security_prompt.md"
+            echo '__AUTOPILOT_SECURITY_PROMPT__'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run security-reviewer agent
+        id: security_agent
+        uses: ./.autopilot/actions/run-ai-agent
+        with:
+          ai-provider: ${{ inputs.ai-provider }}
+          agent-role: security-reviewer
+          agent-prompt: ${{ steps.security_prompt.outputs.body }}
+          project-context-path: ${{ steps.project_ctx.outputs.path }}
+
+      - name: Save review JSON for outputs
+        shell: bash
+        env:
+          RESULT_JSON: ${{ toJSON(steps.security_agent.outputs.result) }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${RESULT_JSON}" > "${RUNNER_TEMP}/security_result.json"
+
+      - name: Derive summary and severity
+        id: derive
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          text = json.loads(Path(os.environ["RUNNER_TEMP"], "security_result.json").read_text(encoding="utf-8"))
+          overview = "UNKNOWN"
+          m = re.search(
+              r"(?im)\*\*Severity overview:\*\*\s*(NONE|LOW|MEDIUM|HIGH|CRITICAL)\b",
+              text,
+          )
+          if m:
+              overview = m.group(1).upper()
+          else:
+              for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+                  if re.search(rf"(?i)\b{sev}\b", text):
+                      overview = sev
+                      break
+
+          summary = text.strip().replace("\r\n", "\n")
+          if len(summary) > 1200:
+              summary = summary[:1200] + "\n\n…(truncated for workflow output)"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as gh:
+              gh.write("severity=" + overview + "\n")
+              gh.write("summary<<__SEC_SUMMARY__\n")
+              gh.write(summary + "\n")
+              gh.write("__SEC_SUMMARY__\n")
+          PY
+
+      - name: Post security review comment
+        uses: ./.autopilot/actions/post-issue-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-tag: security-review
+          comment-body: |
+            ## Autopilot security review
+
+            ${{ steps.security_agent.outputs.result }}
+
+  code-review:
+    runs-on: ubuntu-latest
+    env:
+      AI_API_KEY: ${{ secrets.AI_API_KEY }}
+    outputs:
+      review-decision: ${{ steps.derive.outputs.decision }}
+      review-summary: ${{ steps.derive.outputs.summary }}
+    steps:
+      - name: Resolve Autopilot repository
+        id: autopilot
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="${{ github.workflow_ref }}"
+          path="${ref%%@*}"
+          repo="${path%/.github/workflows/*}"
+          echo "repo=${repo}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Checkout Autopilot
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.autopilot.outputs.repo }}
+          path: .autopilot
+          token: ${{ github.token }}
+
+      - name: Resolve project context path
+        id: project_ctx
+        shell: bash
+        run: |
+          set -euo pipefail
+          p="${{ inputs.project-context-path }}"
+          if [ -z "${p}" ]; then
+            echo "path=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -f "${p}" ]; then
+            echo "path=${p}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::project-context-path not found at ${p}; continuing without project context"
+            echo "path=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get PR diff
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh pr diff "${{ github.event.pull_request.number }}" > "${RUNNER_TEMP}/pr.diff"
+
+      - name: Collect linked issue context
+        id: linked_issues
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          out="${RUNNER_TEMP}/linked_issues.md"
+          : > "${out}"
+          nums=$(printf '%s\n' "${PR_BODY}" | grep -oEi '(fixes|close|closes|closed|fix|fixes|resolve|resolves|ref|refs)\s*#([0-9]+)' | sed -E 's/.*#([0-9]+)/\1/' | sort -u || true)
+          if [ -z "${nums}" ]; then
+            echo "_No linked issues detected from PR body._" >> "${out}"
+            echo "has_linked=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "has_linked=1" >> "$GITHUB_OUTPUT"
+          for n in ${nums}; do
+            echo "## Linked issue #${n}" >> "${out}"
+            gh issue view "${n}" --json title,body,state,url --template '{{.title}} ({{.state}}) — {{.url}}{{"\n\n"}}{{.body}}' >> "${out}" 2>/dev/null || echo "_Could not load issue #${n}._" >> "${out}"
+            echo >> "${out}"
+          done
+
+      - name: Build pr-reviewer prompt
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Perform a full pull request code review."
+            echo "End your review with a single line exactly: **Review decision:** APPROVE  or  **Review decision:** REQUEST_CHANGES"
+            echo "(use REQUEST_CHANGES if there are any blockers per your role guidelines)."
+            echo
+            echo "## PR title"
+            echo "${PR_TITLE}"
+            echo
+            echo "## PR description"
+            echo "${PR_BODY}"
+            echo
+            echo "## Linked issue details"
+            cat "${RUNNER_TEMP}/linked_issues.md"
+            echo
+            echo "## Unified diff"
+            echo
+            cat "${RUNNER_TEMP}/pr.diff"
+          } > "${RUNNER_TEMP}/pr_prompt.md"
+
+      - name: Load prompt for agent input
+        id: pr_prompt
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo 'body<<__AUTOPILOT_PR_PROMPT__'
+            cat "${RUNNER_TEMP}/pr_prompt.md"
+            echo '__AUTOPILOT_PR_PROMPT__'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run pr-reviewer agent
+        id: pr_agent
+        uses: ./.autopilot/actions/run-ai-agent
+        with:
+          ai-provider: ${{ inputs.ai-provider }}
+          agent-role: pr-reviewer
+          agent-prompt: ${{ steps.pr_prompt.outputs.body }}
+          project-context-path: ${{ steps.project_ctx.outputs.path }}
+
+      - name: Save review JSON for outputs
+        shell: bash
+        env:
+          RESULT_JSON: ${{ toJSON(steps.pr_agent.outputs.result) }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${RESULT_JSON}" > "${RUNNER_TEMP}/pr_result.json"
+
+      - name: Derive decision and summary
+        id: derive
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          text = json.loads(Path(os.environ["RUNNER_TEMP"], "pr_result.json").read_text(encoding="utf-8"))
+          decision = "request-changes"
+          if re.search(r"(?im)\*\*Review decision:\*\*\s*APPROVE\b", text):
+              decision = "approve"
+          elif re.search(r"(?im)\*\*Review decision:\*\*\s*REQUEST_CHANGES\b", text):
+              decision = "request-changes"
+          elif re.search(r"(?i)\bREQUEST_CHANGES\b", text) or re.search(
+              r"(?i)request changes", text
+          ):
+              decision = "request-changes"
+          elif re.search(r"(?i)\bAPPROVE\b", text) and not re.search(
+              r"(?i)\*\*\[Blocker\]\*\*", text
+          ):
+              decision = "approve"
+
+          summary = text.strip().replace("\r\n", "\n")
+          if len(summary) > 1200:
+              summary = summary[:1200] + "\n\n…(truncated for workflow output)"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as gh:
+              gh.write("decision=" + decision + "\n")
+              gh.write("summary<<__PR_SUMMARY__\n")
+              gh.write(summary + "\n")
+              gh.write("__PR_SUMMARY__\n")
+          PY
+
+      - name: Post code review comment
+        uses: ./.autopilot/actions/post-issue-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-tag: code-review
+          comment-body: |
+            ## Autopilot code review
+
+            ${{ steps.pr_agent.outputs.result }}
+
+  summary:
+    needs: [security-review, code-review]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve Autopilot repository
+        id: autopilot
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="${{ github.workflow_ref }}"
+          path="${ref%%@*}"
+          repo="${path%/.github/workflows/*}"
+          echo "repo=${repo}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Autopilot (actions only)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.autopilot.outputs.repo }}
+          path: .autopilot
+          token: ${{ github.token }}
+
+      - name: Build aggregate summary
+        id: aggregate
+        shell: bash
+        env:
+          SEC_SEVERITY: ${{ needs.security-review.outputs.security-severity }}
+          SEC_SUMMARY: ${{ needs.security-review.outputs.security-summary }}
+          PR_DECISION: ${{ needs.code-review.outputs.review-decision }}
+          PR_SUMMARY: ${{ needs.code-review.outputs.review-summary }}
+        run: |
+          set -euo pipefail
+          sec_state="passed"
+          case "${SEC_SEVERITY}" in
+            HIGH|CRITICAL) sec_state="concerns" ;;
+            *) sec_state="passed" ;;
+          esac
+
+          if [ "${PR_DECISION}" = "approve" ]; then
+            rec="Overall: **Approve** — no blocking items flagged by the automated reviewers (verify manually before merge)."
+            review_state="approved"
+          else
+            rec="Overall: **Request changes** — address blockers or follow up before merge."
+            review_state="changes-requested"
+          fi
+
+          {
+            echo 'body<<__REVIEW_SUMMARY__'
+            echo "## Autopilot review summary"
+            echo
+            echo "### Security"
+            echo "- **Status:** ${sec_state} (workflow severity: **${SEC_SEVERITY}**)"
+            echo "- **Highlights:**"
+            echo
+            printf '%s\n' "${SEC_SUMMARY}"
+            echo
+            echo "### Code review"
+            echo "- **Decision:** ${PR_DECISION}"
+            echo "- **Highlights:**"
+            echo
+            printf '%s\n' "${PR_SUMMARY}"
+            echo
+            echo "### Recommendation"
+            echo "${rec}"
+            echo '__REVIEW_SUMMARY__'
+          } >> "$GITHUB_OUTPUT"
+
+          echo "sec_state=${sec_state}" >> "$GITHUB_OUTPUT"
+          echo "review_state=${review_state}" >> "$GITHUB_OUTPUT"
+
+      - name: Post summary comment
+        uses: ./.autopilot/actions/post-issue-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-tag: review-summary
+          comment-body: ${{ steps.aggregate.outputs.body }}
+
+      - name: Apply review labels
+        uses: ./.autopilot/actions/manage-labels
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          remove-labels: security:passed,security:concerns,review:approved,review:changes-requested
+          add-labels: security:${{ steps.aggregate.outputs.sec_state }},review:${{ steps.aggregate.outputs.review_state }}
