@@ -1,0 +1,85 @@
+{
+  "name": "autopilot",
+  "owner": {
+    "name": "CaptShanks"
+  },
+  "metadata": {
+    "description": "AI agents and skills for automated software development",
+    "version": "1.0.0",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "triage-agent",
+      "source": "triage-agent",
+      "description": "Analyzes issues to determine actionability; no skill dependencies",
+      "version": "1.0.0",
+      "category": "agents",
+      "tags": ["triage", "issues"],
+      "keywords": ["triage", "issue-analysis", "clarification"]
+    },
+    {
+      "name": "architect-agent",
+      "source": "architect-agent",
+      "description": "Designs solution architecture; includes security-awareness and scalability-resilience skills",
+      "version": "1.0.0",
+      "category": "agents",
+      "tags": ["architecture", "design", "planning"],
+      "keywords": ["architecture", "design", "solution-planning", "scalability"]
+    },
+    {
+      "name": "implementer-agent",
+      "source": "implementer-agent",
+      "description": "Implements solutions; includes security-awareness, scalability-resilience, and code-quality-fundamentals skills",
+      "version": "1.0.0",
+      "category": "agents",
+      "tags": ["implementation", "development"],
+      "keywords": ["implementation", "coding", "development", "security", "quality"]
+    },
+    {
+      "name": "test-engineer",
+      "source": "test-engineer",
+      "description": "Writes unit and integration tests; includes code-quality-fundamentals and test-patterns skills",
+      "version": "1.0.0",
+      "category": "agents",
+      "tags": ["testing", "unit-tests", "integration-tests"],
+      "keywords": ["testing", "unit-tests", "integration-tests", "edge-cases"]
+    },
+    {
+      "name": "security-reviewer",
+      "source": "security-reviewer",
+      "description": "Reviews code for security vulnerabilities; includes security-awareness and security-owasp skills",
+      "version": "1.0.0",
+      "category": "agents",
+      "tags": ["security", "owasp", "vulnerabilities"],
+      "keywords": ["security", "owasp", "vulnerability", "appsec"]
+    },
+    {
+      "name": "pr-reviewer",
+      "source": "pr-reviewer",
+      "description": "Reviews PRs for quality; includes security-awareness, code-quality-fundamentals, and code-review-standards skills",
+      "version": "1.0.0",
+      "category": "agents",
+      "tags": ["review", "code-quality"],
+      "keywords": ["review", "code-quality", "pr", "pull-request"]
+    },
+    {
+      "name": "go-skills",
+      "source": "go-skills",
+      "description": "Go development skill with idioms, patterns, and examples; standalone, no agent",
+      "version": "1.0.0",
+      "category": "skills",
+      "tags": ["go", "golang"],
+      "keywords": ["go", "golang", "idioms", "patterns"]
+    },
+    {
+      "name": "autopilot-full",
+      "source": "autopilot-full",
+      "description": "All 6 agents + all 7 skills in one install",
+      "version": "1.0.0",
+      "category": "bundles",
+      "tags": ["full", "bundle", "all"],
+      "keywords": ["full", "bundle", "complete", "all-agents", "all-skills"]
+    }
+  ]
+}
