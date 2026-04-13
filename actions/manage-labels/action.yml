@@ -1,0 +1,199 @@
+name: Manage labels
+description: >-
+  Ensure repository labels exist (with prefix-based colors), then add or remove labels on an issue or PR.
+  Requires the GitHub CLI (gh) on the runner.
+inputs:
+  issue-number:
+    description: Issue or pull request number
+    required: true
+  add-labels:
+    description: Comma-separated labels to add
+    required: false
+    default: ''
+  remove-labels:
+    description: Comma-separated labels to remove
+    required: false
+    default: ''
+  repo:
+    description: Repository in owner/repo format
+    required: false
+    default: ${{ github.repository }}
+  token:
+    description: GitHub token with issues and pull requests write access
+    required: false
+    default: ${{ github.token }}
+outputs:
+  added:
+    description: Comma-separated list of labels that were actually added to the issue/PR
+    value: ${{ steps.add-labels.outputs.added }}
+  removed:
+    description: Comma-separated list of labels that were actually removed from the issue/PR
+    value: ${{ steps.remove-labels.outputs.removed }}
+runs:
+  using: composite
+  steps:
+    - name: Ensure labels exist
+      if: ${{ inputs.add-labels != '' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        REPO: ${{ inputs.repo }}
+        ADD_LABELS: ${{ inputs.add-labels }}
+      run: |
+        set -euo pipefail
+
+        uri_enc() {
+          printf '%s' "$1" | jq -sRr @uri
+        }
+
+        color_for_label() {
+          local l="$1"
+          case "$l" in
+            autopilot:*) echo '0e8a16' ;;
+            priority:*) echo 'd93f0b' ;;
+            type:*) echo '1d76db' ;;
+            status:*) echo 'fbca04' ;;
+            *) echo 'ededed' ;;
+          esac
+        }
+
+        if [[ "$REPO" != */* ]]; then
+          echo '::error::repo must be in owner/repo format'
+          exit 1
+        fi
+        OWNER="${REPO%%/*}"
+        REPO_NAME="${REPO#*/}"
+
+        IFS=',' read -ra RAW <<< "$ADD_LABELS"
+        for item in "${RAW[@]}"; do
+          label=$(echo "$item" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          [[ -z "$label" ]] && continue
+          enc=$(uri_enc "$label")
+          if gh api "repos/${OWNER}/${REPO_NAME}/labels/${enc}" -s -o /dev/null 2>/dev/null; then
+            continue
+          fi
+          color=$(color_for_label "$label")
+          gh api -X POST "repos/${OWNER}/${REPO_NAME}/labels" \
+            -f "name=$label" \
+            -f "color=$color" \
+            -s -o /dev/null
+        done
+
+    - name: Add labels
+      id: add-labels
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        REPO: ${{ inputs.repo }}
+        ISSUE_NUMBER: ${{ inputs.issue-number }}
+        ADD_LABELS: ${{ inputs.add-labels }}
+      run: |
+        set -euo pipefail
+
+        trim() { echo "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
+
+        if [[ -z "$(trim "$ADD_LABELS")" ]]; then
+          echo 'added=' >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        if [[ "$REPO" != */* ]]; then
+          echo '::error::repo must be in owner/repo format'
+          exit 1
+        fi
+        OWNER="${REPO%%/*}"
+        REPO_NAME="${REPO#*/}"
+
+        mapfile -t current < <(gh api "repos/${OWNER}/${REPO_NAME}/issues/${ISSUE_NUMBER}" --jq '.labels[].name' 2>/dev/null || true)
+
+        declare -A have=()
+        for c in "${current[@]:-}"; do
+          [[ -n "$c" ]] || continue
+          have["$c"]=1
+        done
+
+        IFS=',' read -ra RAW <<< "$ADD_LABELS"
+        to_add=()
+        for item in "${RAW[@]}"; do
+          label=$(trim "$item")
+          [[ -z "$label" ]] && continue
+          if [[ -z "${have[$label]+set}" ]]; then
+            to_add+=("$label")
+          fi
+        done
+
+        if ((${#to_add[@]} == 0)); then
+          echo 'added=' >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        printf '%s\n' "${to_add[@]}" | jq -R . | jq -s '{labels: .}' \
+          | gh api -X POST "repos/${OWNER}/${REPO_NAME}/issues/${ISSUE_NUMBER}/labels" --input - -s -o /dev/null
+
+        {
+          printf 'added='
+          first=1
+          for x in "${to_add[@]}"; do
+            if [[ "$first" -eq 1 ]]; then
+              first=0
+            else
+              printf ','
+            fi
+            printf '%s' "$x"
+          done
+          printf '\n'
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Remove labels
+      id: remove-labels
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        REPO: ${{ inputs.repo }}
+        ISSUE_NUMBER: ${{ inputs.issue-number }}
+        REMOVE_LABELS: ${{ inputs.remove-labels }}
+      run: |
+        set -euo pipefail
+
+        uri_enc() {
+          printf '%s' "$1" | jq -sRr @uri
+        }
+
+        trim() { echo "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
+
+        if [[ -z "$(trim "$REMOVE_LABELS")" ]]; then
+          echo 'removed=' >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        if [[ "$REPO" != */* ]]; then
+          echo '::error::repo must be in owner/repo format'
+          exit 1
+        fi
+        OWNER="${REPO%%/*}"
+        REPO_NAME="${REPO#*/}"
+
+        removed_list=()
+        IFS=',' read -ra RAW <<< "$REMOVE_LABELS"
+        for item in "${RAW[@]}"; do
+          label=$(trim "$item")
+          [[ -z "$label" ]] && continue
+          enc=$(uri_enc "$label")
+          if gh api -X DELETE "repos/${OWNER}/${REPO_NAME}/issues/${ISSUE_NUMBER}/labels/${enc}" -s -o /dev/null 2>/dev/null; then
+            removed_list+=("$label")
+          fi
+        done
+
+        {
+          printf 'removed='
+          first=1
+          for x in "${removed_list[@]}"; do
+            if [[ "$first" -eq 1 ]]; then
+              first=0
+            else
+              printf ','
+            fi
+            printf '%s' "$x"
+          done
+          printf '\n'
+        } >> "$GITHUB_OUTPUT"

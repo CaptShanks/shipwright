@@ -1,0 +1,214 @@
+name: Run AI agent
+description: >
+  Run an Autopilot agent prompt against a supported AI provider (Codex, Claude). Loads the
+  role-specific agent definition from this repository, optionally merges project context, and
+  invokes the provider with a unified prompt. Pass API credentials via the AI_API_KEY environment
+  variable from the calling workflow.
+
+inputs:
+  ai-provider:
+    description: 'AI backend to use. One of: codex, claude.'
+    required: false
+    default: 'codex'
+  agent-role:
+    description: >
+      Which agent definition to load. One of: triage, architect, implementer, test-engineer,
+      security-reviewer, pr-reviewer.
+    required: true
+  agent-prompt:
+    description: Full user/task prompt for the agent.
+    required: true
+  project-context-path:
+    description: >
+      Optional path to a project knowledge file (e.g. .github/autopilot/project-context.md),
+      relative to the repository root. When empty, no project context is injected.
+    required: false
+    default: ''
+  working-directory:
+    description: Working directory for the agent, relative to the repository root.
+    required: false
+    default: '.'
+  max-tokens:
+    description: >
+      Target maximum tokens for the model response. Included in the composed prompt as run
+      guidance for the agent (Codex CLI does not expose a dedicated max-output-token flag).
+    required: false
+    default: '16384'
+  timeout-minutes:
+    description: Step timeout (minutes) for provider execution.
+    required: false
+    default: '30'
+
+outputs:
+  result:
+    description: Primary text output from the AI agent (or the Claude placeholder message).
+    value: ${{ inputs['ai-provider'] == 'codex' && steps.run_codex.outputs['final-message'] || steps.run_claude.outputs.result }}
+  exit-code:
+    description: Exit code for a successful run (0). Unset if a prior step failed.
+    value: ${{ steps.record_exit.outputs.code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate inputs
+      shell: bash
+      env:
+        AI_PROVIDER: ${{ inputs['ai-provider'] }}
+        AGENT_ROLE: ${{ inputs['agent-role'] }}
+        AGENT_PROMPT: ${{ inputs['agent-prompt'] }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "$AGENT_PROMPT" ]; then
+          echo "agent-prompt must be non-empty" >&2
+          exit 1
+        fi
+
+        case "$AI_PROVIDER" in
+          codex|claude) ;;
+          *)
+            echo "Invalid ai-provider: $AI_PROVIDER (expected codex or claude)" >&2
+            exit 1
+            ;;
+        esac
+
+        case "$AGENT_ROLE" in
+          triage|architect|implementer|test-engineer|security-reviewer|pr-reviewer) ;;
+          *)
+            echo "Invalid agent-role: $AGENT_ROLE" >&2
+            exit 1
+            ;;
+        esac
+
+    - name: Load project context
+      shell: bash
+      env:
+        CONTEXT_PATH: ${{ inputs['project-context-path'] }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "$CONTEXT_PATH" ]; then
+          echo "PROJECT_CONTEXT=" >> "$GITHUB_ENV"
+          exit 0
+        fi
+
+        ROOT="${GITHUB_WORKSPACE}"
+        FILE="$ROOT/$CONTEXT_PATH"
+        if [ ! -f "$FILE" ]; then
+          echo "project-context-path not found: $FILE" >&2
+          exit 1
+        fi
+
+        {
+          echo 'PROJECT_CONTEXT<<__AUTOPILOT_CTX_EOF__'
+          cat "$FILE"
+          echo '__AUTOPILOT_CTX_EOF__'
+        } >> "$GITHUB_ENV"
+
+    - name: Load agent definition
+      shell: bash
+      env:
+        AGENT_ROLE: ${{ inputs['agent-role'] }}
+      run: |
+        set -euo pipefail
+
+        case "$AGENT_ROLE" in
+          triage)
+            rel='../../plugins/triage-agent/agents/triage.md'
+            ;;
+          architect)
+            rel='../../plugins/architect-agent/agents/architect.md'
+            ;;
+          implementer)
+            rel='../../plugins/implementer-agent/agents/implementer.md'
+            ;;
+          test-engineer)
+            rel='../../plugins/test-engineer/agents/test-engineer.md'
+            ;;
+          security-reviewer)
+            rel='../../plugins/security-reviewer/agents/security-reviewer.md'
+            ;;
+          pr-reviewer)
+            rel='../../plugins/pr-reviewer/agents/pr-reviewer.md'
+            ;;
+          *)
+            echo "Unhandled agent-role: $AGENT_ROLE" >&2
+            exit 1
+            ;;
+        esac
+
+        AGENT_FILE="$(cd "$GITHUB_ACTION_PATH" && cd "$(dirname "$rel")" && pwd)/$(basename "$rel")"
+        if [ ! -f "$AGENT_FILE" ]; then
+          echo "Agent definition missing: $AGENT_FILE" >&2
+          exit 1
+        fi
+
+        {
+          echo 'AGENT_DEFINITION<<__AUTOPILOT_AGENT_EOF__'
+          cat "$AGENT_FILE"
+          echo '__AUTOPILOT_AGENT_EOF__'
+        } >> "$GITHUB_ENV"
+
+    - name: Construct full prompt
+      shell: bash
+      env:
+        USER_PROMPT: ${{ inputs['agent-prompt'] }}
+        MAX_TOKENS: ${{ inputs['max-tokens'] }}
+        TIMEOUT_MINUTES: ${{ inputs['timeout-minutes'] }}
+      run: |
+        set -euo pipefail
+
+        PROMPT_FILE="${RUNNER_TEMP}/autopilot_full_prompt.txt"
+        {
+          echo '# Agent definition'
+          echo
+          printf '%s\n' "$AGENT_DEFINITION"
+          echo
+          echo '# Project context'
+          echo
+          printf '%s\n' "$PROJECT_CONTEXT"
+          echo
+          echo '# Run configuration'
+          echo
+          echo "- Target max response tokens (guidance): ${MAX_TOKENS}"
+          echo "- Step timeout (minutes): ${TIMEOUT_MINUTES}"
+          echo
+          echo '# Task'
+          echo
+          printf '%s\n' "$USER_PROMPT"
+        } > "$PROMPT_FILE"
+
+        echo "PROMPT_FILE=${PROMPT_FILE}" >> "$GITHUB_ENV"
+
+    - name: Run Codex
+      id: run_codex
+      if: ${{ inputs['ai-provider'] == 'codex' }}
+      timeout-minutes: ${{ fromJSON(inputs['timeout-minutes']) }}
+      uses: openai/codex-action@v1
+      env:
+        OPENAI_API_KEY: ${{ env.AI_API_KEY }}
+      with:
+        prompt-file: ${{ env.PROMPT_FILE }}
+        openai-api-key: ${{ env.AI_API_KEY }}
+        working-directory: ${{ github.workspace }}/${{ inputs['working-directory'] }}
+        sandbox: ${{ (inputs['agent-role'] == 'implementer' || inputs['agent-role'] == 'test-engineer') && 'workspace-write' || 'read-only' }}
+
+    - name: Run Claude
+      id: run_claude
+      if: ${{ inputs['ai-provider'] == 'claude' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        msg='Claude provider coming soon'
+        echo "$msg"
+        {
+          echo 'result<<__AUTOPILOT_CLAUDE_EOF__'
+          echo "$msg"
+          echo '__AUTOPILOT_CLAUDE_EOF__'
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Record success exit code
+      id: record_exit
+      if: ${{ success() }}
+      shell: bash
+      run: echo 'code=0' >> "$GITHUB_OUTPUT"

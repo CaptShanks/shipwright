@@ -1,0 +1,105 @@
+name: Post Issue Comment
+description: >-
+  Post or update a Markdown comment on a GitHub issue or pull request.
+  Optional tag enables idempotent updates via a hidden HTML marker.
+
+inputs:
+  issue-number:
+    description: Issue or pull request number to comment on
+    required: true
+  comment-body:
+    description: Comment text (Markdown supported)
+    required: true
+  comment-tag:
+    description: >-
+      Unique tag. If set, find a comment ending with <!-- autopilot:TAG --> and
+      update it; otherwise create a new comment and append the marker.
+    required: false
+    default: ''
+  repo:
+    description: Repository in owner/repo format
+    required: false
+    default: ${{ github.repository }}
+  token:
+    description: GitHub token with permission to read/write issue comments
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  comment-id:
+    description: ID of the created or updated issue comment
+    value: ${{ steps.post-or-update.outputs.comment-id }}
+  comment-url:
+    description: HTML URL of the comment
+    value: ${{ steps.post-or-update.outputs.comment-url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Find existing comment
+      id: find-existing
+      if: ${{ inputs.comment-tag != '' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        GH_REPO: ${{ inputs.repo }}
+      run: |
+        set -euo pipefail
+        OWNER="${GH_REPO%%/*}"
+        NAME="${GH_REPO#*/}"
+        ISSUE="${{ inputs.issue-number }}"
+        TAG="${{ inputs.comment-tag }}"
+        MARKER="<!-- autopilot:${TAG} -->"
+
+        COMMENTS=$(gh api --paginate "repos/${OWNER}/${NAME}/issues/${ISSUE}/comments")
+        EXISTING_ID=$(echo "$COMMENTS" | jq -r --arg m "$MARKER" '
+          [.[] | select(.body | type == "string" and contains($m))]
+          | sort_by(.created_at)
+          | if length == 0 then ""
+            else last | .id | tostring
+            end
+        ')
+
+        echo "existing-id=${EXISTING_ID}" >> "$GITHUB_OUTPUT"
+
+    - name: Post or update comment
+      id: post-or-update
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        GH_REPO: ${{ inputs.repo }}
+        COMMENT_BODY: ${{ inputs.comment-body }}
+      run: |
+        set -euo pipefail
+        OWNER="${GH_REPO%%/*}"
+        NAME="${GH_REPO#*/}"
+        ISSUE="${{ inputs.issue-number }}"
+        TAG="${{ inputs.comment-tag }}"
+        EXISTING_ID="${{ steps.find-existing.outputs.existing-id }}"
+
+        if [ -n "$TAG" ]; then
+          FULL_BODY=$(jq -rn --arg b "$COMMENT_BODY" --arg t "$TAG" \
+            '$b + "\n\n<!-- autopilot:" + $t + " -->"')
+        else
+          FULL_BODY="$COMMENT_BODY"
+        fi
+
+        PAYLOAD=$(jq -n --arg body "$FULL_BODY" '{body: $body}')
+
+        if [ -n "${EXISTING_ID}" ]; then
+          RESPONSE=$(printf '%s' "$PAYLOAD" | gh api -X PATCH \
+            "repos/${OWNER}/${NAME}/issues/comments/${EXISTING_ID}" \
+            --input -)
+        else
+          RESPONSE=$(printf '%s' "$PAYLOAD" | gh api -X POST \
+            "repos/${OWNER}/${NAME}/issues/${ISSUE}/comments" \
+            --input -)
+        fi
+
+        COMMENT_ID=$(printf '%s' "$RESPONSE" | jq -r '.id')
+        COMMENT_URL=$(printf '%s' "$RESPONSE" | jq -r '.html_url')
+
+        {
+          echo "comment-id=${COMMENT_ID}"
+          echo "comment-url=${COMMENT_URL}"
+        } >> "$GITHUB_OUTPUT"
