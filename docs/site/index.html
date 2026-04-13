@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autopilot - AI Agents &amp; Skills Marketplace</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --text: #1f2328;
+  --text-secondary: #656d76;
+  --border: #d0d7de;
+  --card-bg: #ffffff;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --card-shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
+  --modal-bg: #ffffff;
+  --modal-backdrop: rgba(0,0,0,0.5);
+  --code-bg: #f6f8fa;
+  --code-text: #1f2328;
+  --accent: #0969da;
+  --badge-agent: #0969da;
+  --badge-agent-bg: #ddf4ff;
+  --badge-skill: #1a7f37;
+  --badge-skill-bg: #dafbe1;
+  --badge-bundle: #8250df;
+  --badge-bundle-bg: #fbefff;
+  --tag-bg: #eef1f4;
+  --tag-text: #656d76;
+  --btn-bg: #0969da;
+  --btn-text: #ffffff;
+  --btn-hover: #0860ca;
+  --filter-active: #0969da;
+  --filter-active-text: #ffffff;
+  --filter-bg: transparent;
+  --filter-text: #656d76;
+  --skill-pill-bg: #eef1f4;
+  --skill-pill-text: #656d76;
+  --copy-success: #1a7f37;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --bg-secondary: #161b22;
+    --text: #e6edf3;
+    --text-secondary: #8b949e;
+    --border: #30363d;
+    --card-bg: #161b22;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --card-shadow-hover: 0 8px 24px rgba(0,0,0,0.4);
+    --modal-bg: #161b22;
+    --modal-backdrop: rgba(0,0,0,0.7);
+    --code-bg: #0d1117;
+    --code-text: #e6edf3;
+    --accent: #58a6ff;
+    --badge-agent: #58a6ff;
+    --badge-agent-bg: #162d50;
+    --badge-skill: #3fb950;
+    --badge-skill-bg: #1b3626;
+    --badge-bundle: #bc8cff;
+    --badge-bundle-bg: #2d1b50;
+    --tag-bg: #21262d;
+    --tag-text: #8b949e;
+    --btn-bg: #238636;
+    --btn-text: #ffffff;
+    --btn-hover: #2ea043;
+    --filter-active: #58a6ff;
+    --filter-active-text: #ffffff;
+    --filter-bg: transparent;
+    --filter-text: #8b949e;
+    --skill-pill-bg: #21262d;
+    --skill-pill-text: #8b949e;
+    --copy-success: #3fb950;
+  }
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+header {
+  padding: 48px 0 32px;
+  text-align: center;
+}
+
+header h1 {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+header h1 span {
+  color: var(--accent);
+}
+
+header p {
+  color: var(--text-secondary);
+  font-size: 1.15rem;
+  max-width: 520px;
+  margin: 0 auto 32px;
+}
+
+.filters {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  background: var(--filter-bg);
+  color: var(--filter-text);
+  border: 1px solid var(--border);
+  padding: 8px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.filter-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.filter-btn.active {
+  background: var(--filter-active);
+  color: var(--filter-active-text);
+  border-color: var(--filter-active);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  padding-bottom: 64px;
+}
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 580px) {
+  .grid { grid-template-columns: 1fr; }
+  header h1 { font-size: 1.8rem; }
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.badge-agents { color: var(--badge-agent); background: var(--badge-agent-bg); }
+.badge-skills { color: var(--badge-skill); background: var(--badge-skill-bg); }
+.badge-bundles { color: var(--badge-bundle); background: var(--badge-bundle-bg); }
+
+.card-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.card-version {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+
+.card-desc {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  flex-grow: 1;
+}
+
+.card-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.skill-pill {
+  font-size: 0.72rem;
+  background: var(--skill-pill-bg);
+  color: var(--skill-pill-text);
+  padding: 2px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  font-size: 0.72rem;
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+
+.install-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: none;
+  padding: 10px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background 0.15s ease;
+  width: 100%;
+}
+
+.install-btn:hover {
+  background: var(--btn-hover);
+}
+
+.install-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--modal-backdrop);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.modal {
+  background: var(--modal-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0;
+}
+
+.modal-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  line-height: 1;
+  font-size: 1.4rem;
+}
+
+.modal-close:hover {
+  color: var(--text);
+}
+
+.modal-desc {
+  padding: 8px 24px 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.modal-section {
+  padding: 20px 24px;
+}
+
+.modal-section h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-section h3 .label-now {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 8px;
+  color: var(--badge-skill);
+  background: var(--badge-skill-bg);
+  font-weight: 700;
+}
+
+.modal-section h3 .label-soon {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 8px;
+  color: var(--badge-bundle);
+  background: var(--badge-bundle-bg);
+  font-weight: 700;
+}
+
+.code-block {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: var(--code-text);
+  position: relative;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.code-block .comment {
+  color: var(--text-secondary);
+}
+
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--tag-bg);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.copy-btn:hover {
+  color: var(--text);
+  border-color: var(--text-secondary);
+}
+
+.copy-btn.copied {
+  color: var(--copy-success);
+  border-color: var(--copy-success);
+}
+
+.modal-footer {
+  padding: 0 24px 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 4px;
+}
+
+.modal-footer a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.82rem;
+}
+
+.modal-footer a:hover {
+  text-decoration: underline;
+}
+
+footer {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  border-top: 1px solid var(--border);
+}
+
+footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <h1><span>Autopilot</span> Marketplace</h1>
+    <p>AI agents and skills for automated software development. Install individually or grab the full bundle.</p>
+    <div class="filters">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="agents">Agents</button>
+      <button class="filter-btn" data-filter="skills">Skills</button>
+      <button class="filter-btn" data-filter="bundles">Bundles</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <div class="grid" id="plugin-grid"></div>
+</main>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title"></h2>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <p class="modal-desc" id="modal-desc"></p>
+
+    <div class="modal-section">
+      <h3>Using Claude Code <span class="label-now">Available now</span></h3>
+      <div class="code-block" id="code-claude">
+        <button class="copy-btn" data-target="code-claude">Copy</button>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Using Autopilot CLI <span class="label-soon">Coming soon</span></h3>
+      <div class="code-block" id="code-cli">
+        <button class="copy-btn" data-target="code-cli">Copy</button>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <a href="https://github.com/CaptShanks/autopilot" target="_blank" rel="noopener">View on GitHub &rarr;</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="container">
+    <a href="https://github.com/CaptShanks/autopilot">CaptShanks/autopilot</a> &middot; MIT License
+  </div>
+</footer>
+
+<script>
+const PLUGINS = [
+  {
+    name: "triage-agent",
+    description: "Analyzes GitHub issues to determine actionability, requests clarification when needed, and classifies issues for downstream agents.",
+    version: "1.0.0",
+    category: "agents",
+    tags: ["triage", "issues"],
+    skills: []
+  },
+  {
+    name: "architect-agent",
+    description: "Designs solution architecture with security awareness and scalability resilience skills bundled.",
+    version: "1.0.0",
+    category: "agents",
+    tags: ["architecture", "design", "planning"],
+    skills: ["security-awareness", "scalability-resilience"]
+  },
+  {
+    name: "implementer-agent",
+    description: "Implements solutions following architecture plans with security, scalability, and code quality skills.",
+    version: "1.0.0",
+    category: "agents",
+    tags: ["implementation", "development"],
+    skills: ["security-awareness", "scalability-resilience", "code-quality-fundamentals"]
+  },
+  {
+    name: "test-engineer",
+    description: "Writes comprehensive unit and integration tests with code quality and test pattern skills.",
+    version: "1.0.0",
+    category: "agents",
+    tags: ["testing", "unit-tests", "integration-tests"],
+    skills: ["code-quality-fundamentals", "test-patterns"]
+  },
+  {
+    name: "security-reviewer",
+    description: "Reviews code for security vulnerabilities with OWASP knowledge and security awareness skills.",
+    version: "1.0.0",
+    category: "agents",
+    tags: ["security", "owasp", "vulnerabilities"],
+    skills: ["security-awareness", "security-owasp"]
+  },
+  {
+    name: "pr-reviewer",
+    description: "Reviews pull requests for quality with security awareness, code quality, and review standards skills.",
+    version: "1.0.0",
+    category: "agents",
+    tags: ["review", "code-quality"],
+    skills: ["security-awareness", "code-quality-fundamentals", "code-review-standards"]
+  },
+  {
+    name: "go-skills",
+    description: "Go development idioms, patterns, and conventions as a standalone skill. No agent bundled.",
+    version: "1.0.0",
+    category: "skills",
+    tags: ["go", "golang"],
+    skills: ["go-development"]
+  },
+  {
+    name: "autopilot-full",
+    description: "All 6 agents and all 7 skills in one install. The complete Autopilot experience.",
+    version: "1.0.0",
+    category: "bundles",
+    tags: ["full", "bundle", "all"],
+    skills: [
+      "security-awareness", "code-quality-fundamentals", "scalability-resilience",
+      "security-owasp", "test-patterns", "code-review-standards", "go-development"
+    ]
+  }
+];
+
+const grid = document.getElementById("plugin-grid");
+const overlay = document.getElementById("modal-overlay");
+const modalTitle = document.getElementById("modal-title");
+const modalDesc = document.getElementById("modal-desc");
+const codeClaude = document.getElementById("code-claude");
+const codeCli = document.getElementById("code-cli");
+
+function renderCards(filter) {
+  grid.innerHTML = "";
+  const list = filter === "all" ? PLUGINS : PLUGINS.filter(p => p.category === filter);
+  list.forEach(p => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.setAttribute("data-category", p.category);
+
+    const badgeClass = "badge-" + p.category;
+    const badgeLabel = p.category === "agents" ? "Agent"
+                     : p.category === "skills" ? "Skill"
+                     : "Bundle";
+
+    let skillsHtml = "";
+    if (p.skills.length > 0 && p.category !== "skills") {
+      skillsHtml = '<div class="card-skills">' +
+        p.skills.map(s => '<span class="skill-pill">' + s + '</span>').join("") +
+        '</div>';
+    }
+
+    const tagsHtml = p.tags.map(t => '<span class="tag">' + t + '</span>').join("");
+
+    card.innerHTML =
+      '<div class="card-header">' +
+        '<span class="badge ' + badgeClass + '">' + badgeLabel + '</span>' +
+        '<span class="card-name">' + p.name + '</span>' +
+        '<span class="card-version">v' + p.version + '</span>' +
+      '</div>' +
+      '<p class="card-desc">' + p.description + '</p>' +
+      skillsHtml +
+      '<div class="card-tags">' + tagsHtml + '</div>' +
+      '<button class="install-btn" data-plugin="' + p.name + '">' +
+        '<svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 110 16A8 8 0 018 0zm.75 4.75a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z"/></svg>' +
+        'Install' +
+      '</button>';
+
+    grid.appendChild(card);
+  });
+}
+
+function openModal(pluginName) {
+  const p = PLUGINS.find(x => x.name === pluginName);
+  if (!p) return;
+
+  modalTitle.textContent = "Install " + p.name;
+  modalDesc.textContent = p.description;
+
+  const claudeText =
+    '# Add the marketplace (one time)\n' +
+    '/plugin marketplace add CaptShanks/autopilot\n\n' +
+    '# Install this plugin\n' +
+    '/plugin install ' + p.name + '@autopilot';
+
+  const cliText =
+    '# Install the CLI\n' +
+    'go install github.com/CaptShanks/autopilot/cli@latest\n\n' +
+    '# Install this plugin\n' +
+    'autopilot install ' + p.name;
+
+  codeClaude.innerHTML =
+    '<button class="copy-btn" data-target="claude">Copy</button>' +
+    formatCode(claudeText);
+
+  codeCli.innerHTML =
+    '<button class="copy-btn" data-target="cli">Copy</button>' +
+    formatCode(cliText);
+
+  overlay.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeModal() {
+  overlay.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function formatCode(text) {
+  return text.replace(/^(#.*)$/gm, '<span class="comment">$1</span>');
+}
+
+function copyCode(target) {
+  let text;
+  if (target === "claude") {
+    text = codeClaude.textContent.replace(/^Copy/, "").trim();
+  } else {
+    text = codeCli.textContent.replace(/^Copy/, "").trim();
+  }
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn[data-target="' + target + '"]');
+    btn.textContent = "Copied!";
+    btn.classList.add("copied");
+    setTimeout(() => {
+      btn.textContent = "Copy";
+      btn.classList.remove("copied");
+    }, 2000);
+  });
+}
+
+// Filter buttons
+document.querySelectorAll(".filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    renderCards(btn.dataset.filter);
+  });
+});
+
+// Card install buttons (delegated)
+grid.addEventListener("click", e => {
+  const btn = e.target.closest(".install-btn");
+  if (btn) openModal(btn.dataset.plugin);
+});
+
+// Modal close
+document.getElementById("modal-close").addEventListener("click", closeModal);
+overlay.addEventListener("click", e => {
+  if (e.target === overlay) closeModal();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeModal();
+});
+
+// Copy buttons (delegated)
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".copy-btn");
+  if (btn) copyCode(btn.dataset.target);
+});
+
+// Initial render
+renderCards("all");
+</script>
+</body>
+</html>
