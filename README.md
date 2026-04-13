@@ -1,0 +1,85 @@
+# Autopilot
+
+AI agents and skills for automated software development. A dual-purpose framework that works as a **Claude Code plugin marketplace** and a **GitHub Actions reusable workflow source**.
+
+## What is Autopilot?
+
+Autopilot provides a catalog of specialized AI agents and reusable skills that automate the software development lifecycle:
+
+- **Triage** issues to determine if they're actionable
+- **Architect** solutions by exploring the codebase
+- **Implement** changes following project conventions
+- **Write tests** with comprehensive edge case coverage
+- **Security review** code for vulnerabilities
+- **Review PRs** for quality and correctness
+
+Each agent is deeply opinionated about how to do its job well -- not just "write code," but "write code with security awareness, proper naming, error handling, and scalability in mind."
+
+## Two Ways to Use Autopilot
+
+### Path 1: Claude Code Plugin (Local Development)
+
+Install agents and skills directly into Claude Code:
+
+```shell
+# Add the marketplace (one time)
+/plugin marketplace add CaptShanks/autopilot
+
+# Install individual agents (skills are bundled automatically)
+/plugin install security-reviewer@autopilot
+/plugin install implementer-agent@autopilot
+
+# Or install everything
+/plugin install autopilot-full@autopilot
+```
+
+### Path 2: GitHub Actions (CI/CD Automation)
+
+Use reusable workflows to automate the issue-to-PR pipeline:
+
+```yaml
+# In your repo's .github/workflows/ai-triage.yml
+name: AI Triage
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    uses: CaptShanks/autopilot/.github/workflows/ai-triage.yml@v1
+    with:
+      ai-provider: codex
+      project-context-path: .github/autopilot/project-context.md
+    secrets:
+      AI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+```
+
+## Available Plugins
+
+| Plugin | Type | Contents |
+|--------|------|----------|
+| `triage-agent` | Agent | Issue triage and analysis |
+| `architect-agent` | Agent + Skills | Solution design (+ security-awareness, scalability-resilience) |
+| `implementer-agent` | Agent + Skills | Code implementation (+ security-awareness, scalability-resilience, code-quality-fundamentals) |
+| `test-engineer` | Agent + Skills | Test writing (+ code-quality-fundamentals, test-patterns) |
+| `security-reviewer` | Agent + Skills | Security review (+ security-awareness, security-owasp) |
+| `pr-reviewer` | Agent + Skills | PR review (+ security-awareness, code-quality-fundamentals, code-review-standards) |
+| `go-skills` | Skill | Go development idioms and patterns |
+| `autopilot-full` | Bundle | All 6 agents + all 7 skills |
+
+## Integrating with Your Repo
+
+Add a knowledge base file so the agents understand your project:
+
+1. Create `.github/autopilot/project-context.md` describing your project (see [Knowledge Base Format](docs/knowledge-base-format.md))
+2. Add thin caller workflows (see [Getting Started](docs/getting-started.md))
+3. Optionally add `.claude/settings.json` to auto-register the marketplace for Claude Code users
+
+## Creating Custom Agents and Skills
+
+- [Creating Agents](docs/creating-agents.md)
+- [Creating Skills](docs/creating-skills.md)
+
+## License
+
+[MIT](LICENSE)
