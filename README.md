@@ -15,9 +15,36 @@ Shipwright provides a catalog of specialized AI agents and reusable skills that 
 
 Each agent is deeply opinionated about how to do its job well -- not just "write code," but "write code with security awareness, proper naming, error handling, and scalability in mind."
 
-## Two Ways to Use Shipwright
+## Three Ways to Use Shipwright
 
-### Path 1: Claude Code Plugin (Local Development)
+### Path 1: Ship CLI (Universal)
+
+Install agents and skills into any supported AI tool (Cursor, Claude Code, Codex):
+
+```shell
+# Install the CLI
+go install github.com/CaptShanks/shipwright/cli/cmd/ship@latest
+
+# Install a plugin locally (current project, all tools)
+ship install architect-agent
+
+# Install for a specific tool
+ship install architect-agent --target cursor
+
+# Install globally
+ship install shipwright-full --global
+
+# Browse the marketplace
+ship search
+ship info pr-reviewer
+
+# Manage installed plugins
+ship list
+ship uninstall triage-agent
+ship update
+```
+
+### Path 2: Claude Code Plugin (Local Development)
 
 Install agents and skills directly into Claude Code:
 
@@ -33,7 +60,7 @@ Install agents and skills directly into Claude Code:
 /plugin install shipwright-full@shipwright
 ```
 
-### Path 2: GitHub Actions (CI/CD Automation)
+### Path 3: GitHub Actions (CI/CD Automation)
 
 Use reusable workflows to automate the issue-to-PR pipeline:
 

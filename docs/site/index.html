@@ -481,7 +481,7 @@ footer a:hover {
     </div>
 
     <div class="modal-section">
-      <h3>Using Shipwright CLI <span class="label-soon">Coming soon</span></h3>
+      <h3>Using Ship CLI <span class="label-now">Available now</span></h3>
       <div class="code-block" id="code-cli">
         <button class="copy-btn" data-target="code-cli">Copy</button>
       </div>
@@ -632,9 +632,9 @@ function openModal(pluginName) {
 
   const cliText =
     '# Install the CLI\n' +
-    'go install github.com/CaptShanks/shipwright/cli@latest\n\n' +
+    'go install github.com/CaptShanks/shipwright/cli/cmd/ship@latest\n\n' +
     '# Install this plugin\n' +
-    'shipwright install ' + p.name;
+    'ship install ' + p.name;
 
   codeClaude.innerHTML =
     '<button class="copy-btn" data-target="claude">Copy</button>' +

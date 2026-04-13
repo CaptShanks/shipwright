@@ -9,8 +9,8 @@ Thumbs.db
 *.swo
 *~
 
-# Build artifacts (Phase 2: CLI)
-/cli/shipwright
+# Build artifacts (CLI)
+/cli/ship
 /cli/dist/
 
 # Test artifacts
