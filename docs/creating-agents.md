@@ -1,8 +1,8 @@
-# Creating custom agents for Autopilot
+# Creating custom agents for Shipwright
 
 This guide describes how to author agent definitions (Markdown with YAML frontmatter), register them as Claude plugins in this repository, and validate them locally in Claude Code and in GitHub Actions.
 
-**Audience** — Maintainers adding a new agent plugin, or teams forking Autopilot to encode their own engineering rituals.
+**Audience** — Maintainers adding a new agent plugin, or teams forking Shipwright to encode their own engineering rituals.
 
 ## Agent anatomy
 

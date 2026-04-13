@@ -10,10 +10,9 @@ Thumbs.db
 *~
 
 # Build artifacts (Phase 2: CLI)
-/cli/autopilot
+/cli/shipwright
 /cli/dist/
 
 # Test artifacts
 coverage.out
 coverage.html
-scripts/__pycache__/

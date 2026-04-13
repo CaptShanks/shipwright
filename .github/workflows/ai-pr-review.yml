@@ -10,7 +10,7 @@ on:
       project-context-path:
         description: Path to project knowledge base, relative to repository root (empty if file missing)
         type: string
-        default: .github/autopilot/project-context.md
+        default: .github/shipwright/project-context.md
     secrets:
       AI_API_KEY:
         description: API key for the selected AI provider
@@ -30,8 +30,8 @@ jobs:
       security-summary: ${{ steps.derive.outputs.summary }}
       security-severity: ${{ steps.derive.outputs.severity }}
     steps:
-      - name: Resolve Autopilot repository
-        id: autopilot
+      - name: Resolve Shipwright repository
+        id: shipwright
         shell: bash
         run: |
           set -euo pipefail
@@ -45,11 +45,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Checkout Autopilot
+      - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.autopilot.outputs.repo }}
-          path: .autopilot
+          repository: ${{ steps.shipwright.outputs.repo }}
+          path: .shipwright
           token: ${{ github.token }}
 
       - name: Resolve project context path
@@ -96,14 +96,14 @@ jobs:
         run: |
           set -euo pipefail
           {
-            echo 'body<<__AUTOPILOT_SECURITY_PROMPT__'
+            echo 'body<<__SHIPWRIGHT_SECURITY_PROMPT__'
             cat "${RUNNER_TEMP}/security_prompt.md"
-            echo '__AUTOPILOT_SECURITY_PROMPT__'
+            echo '__SHIPWRIGHT_SECURITY_PROMPT__'
           } >> "$GITHUB_OUTPUT"
 
       - name: Run security-reviewer agent
         id: security_agent
-        uses: ./.autopilot/actions/run-ai-agent
+        uses: ./.shipwright/actions/run-ai-agent
         with:
           ai-provider: ${{ inputs.ai-provider }}
           agent-role: security-reviewer
@@ -155,12 +155,12 @@ jobs:
           PY
 
       - name: Post security review comment
-        uses: ./.autopilot/actions/post-issue-comment
+        uses: ./.shipwright/actions/post-issue-comment
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-tag: security-review
           comment-body: |
-            ## Autopilot security review
+            ## Shipwright security review
 
             ${{ steps.security_agent.outputs.result }}
 
@@ -172,8 +172,8 @@ jobs:
       review-decision: ${{ steps.derive.outputs.decision }}
       review-summary: ${{ steps.derive.outputs.summary }}
     steps:
-      - name: Resolve Autopilot repository
-        id: autopilot
+      - name: Resolve Shipwright repository
+        id: shipwright
         shell: bash
         run: |
           set -euo pipefail
@@ -187,11 +187,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Checkout Autopilot
+      - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.autopilot.outputs.repo }}
-          path: .autopilot
+          repository: ${{ steps.shipwright.outputs.repo }}
+          path: .shipwright
           token: ${{ github.token }}
 
       - name: Resolve project context path
@@ -274,14 +274,14 @@ jobs:
         run: |
           set -euo pipefail
           {
-            echo 'body<<__AUTOPILOT_PR_PROMPT__'
+            echo 'body<<__SHIPWRIGHT_PR_PROMPT__'
             cat "${RUNNER_TEMP}/pr_prompt.md"
-            echo '__AUTOPILOT_PR_PROMPT__'
+            echo '__SHIPWRIGHT_PR_PROMPT__'
           } >> "$GITHUB_OUTPUT"
 
       - name: Run pr-reviewer agent
         id: pr_agent
-        uses: ./.autopilot/actions/run-ai-agent
+        uses: ./.shipwright/actions/run-ai-agent
         with:
           ai-provider: ${{ inputs.ai-provider }}
           agent-role: pr-reviewer
@@ -334,12 +334,12 @@ jobs:
           PY
 
       - name: Post code review comment
-        uses: ./.autopilot/actions/post-issue-comment
+        uses: ./.shipwright/actions/post-issue-comment
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-tag: code-review
           comment-body: |
-            ## Autopilot code review
+            ## Shipwright code review
 
             ${{ steps.pr_agent.outputs.result }}
 
@@ -347,8 +347,8 @@ jobs:
     needs: [security-review, code-review]
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve Autopilot repository
-        id: autopilot
+      - name: Resolve Shipwright repository
+        id: shipwright
         shell: bash
         run: |
           set -euo pipefail
@@ -357,11 +357,11 @@ jobs:
           repo="${path%/.github/workflows/*}"
           echo "repo=${repo}" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout Autopilot (actions only)
+      - name: Checkout Shipwright (actions only)
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.autopilot.outputs.repo }}
-          path: .autopilot
+          repository: ${{ steps.shipwright.outputs.repo }}
+          path: .shipwright
           token: ${{ github.token }}
 
       - name: Build aggregate summary
@@ -390,7 +390,7 @@ jobs:
 
           {
             echo 'body<<__REVIEW_SUMMARY__'
-            echo "## Autopilot review summary"
+            echo "## Shipwright review summary"
             echo
             echo "### Security"
             echo "- **Status:** ${sec_state} (workflow severity: **${SEC_SEVERITY}**)"
@@ -413,14 +413,14 @@ jobs:
           echo "review_state=${review_state}" >> "$GITHUB_OUTPUT"
 
       - name: Post summary comment
-        uses: ./.autopilot/actions/post-issue-comment
+        uses: ./.shipwright/actions/post-issue-comment
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-tag: review-summary
           comment-body: ${{ steps.aggregate.outputs.body }}
 
       - name: Apply review labels
-        uses: ./.autopilot/actions/manage-labels
+        uses: ./.shipwright/actions/manage-labels
         with:
           issue-number: ${{ github.event.pull_request.number }}
           remove-labels: security:passed,security:concerns,review:approved,review:changes-requested

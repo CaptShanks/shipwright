@@ -1,5 +1,5 @@
 {
-  "name": "autopilot",
+  "name": "shipwright",
   "owner": {
     "name": "CaptShanks"
   },
@@ -73,8 +73,8 @@
       "keywords": ["go", "golang", "idioms", "patterns"]
     },
     {
-      "name": "autopilot-full",
-      "source": "autopilot-full",
+      "name": "shipwright-full",
+      "source": "shipwright-full",
       "description": "All 6 agents + all 7 skills in one install",
       "version": "1.0.0",
       "category": "bundles",

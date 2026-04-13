@@ -49,7 +49,7 @@ runs:
         color_for_label() {
           local l="$1"
           case "$l" in
-            autopilot:*) echo '0e8a16' ;;
+            shipwright:*) echo '0e8a16' ;;
             priority:*) echo 'd93f0b' ;;
             type:*) echo '1d76db' ;;
             status:*) echo 'fbca04' ;;

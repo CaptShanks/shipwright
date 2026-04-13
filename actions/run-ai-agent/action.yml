@@ -1,6 +1,6 @@
 name: Run AI agent
 description: >
-  Run an Autopilot agent prompt against a supported AI provider (Codex, Claude). Loads the
+  Run an Shipwright agent prompt against a supported AI provider (Codex, Claude). Loads the
   role-specific agent definition from this repository, optionally merges project context, and
   invokes the provider with a unified prompt. Pass API credentials via the AI_API_KEY environment
   variable from the calling workflow.
@@ -20,7 +20,7 @@ inputs:
     required: true
   project-context-path:
     description: >
-      Optional path to a project knowledge file (e.g. .github/autopilot/project-context.md),
+      Optional path to a project knowledge file (e.g. .github/shipwright/project-context.md),
       relative to the repository root. When empty, no project context is injected.
     required: false
     default: ''
@@ -100,9 +100,9 @@ runs:
         fi
 
         {
-          echo 'PROJECT_CONTEXT<<__AUTOPILOT_CTX_EOF__'
+          echo 'PROJECT_CONTEXT<<__SHIPWRIGHT_CTX_EOF__'
           cat "$FILE"
-          echo '__AUTOPILOT_CTX_EOF__'
+          echo '__SHIPWRIGHT_CTX_EOF__'
         } >> "$GITHUB_ENV"
 
     - name: Load agent definition
@@ -144,9 +144,9 @@ runs:
         fi
 
         {
-          echo 'AGENT_DEFINITION<<__AUTOPILOT_AGENT_EOF__'
+          echo 'AGENT_DEFINITION<<__SHIPWRIGHT_AGENT_EOF__'
           cat "$AGENT_FILE"
-          echo '__AUTOPILOT_AGENT_EOF__'
+          echo '__SHIPWRIGHT_AGENT_EOF__'
         } >> "$GITHUB_ENV"
 
     - name: Construct full prompt
@@ -158,7 +158,7 @@ runs:
       run: |
         set -euo pipefail
 
-        PROMPT_FILE="${RUNNER_TEMP}/autopilot_full_prompt.txt"
+        PROMPT_FILE="${RUNNER_TEMP}/shipwright_full_prompt.txt"
         {
           echo '# Agent definition'
           echo
@@ -202,9 +202,9 @@ runs:
         msg='Claude provider coming soon'
         echo "$msg"
         {
-          echo 'result<<__AUTOPILOT_CLAUDE_EOF__'
+          echo 'result<<__SHIPWRIGHT_CLAUDE_EOF__'
           echo "$msg"
-          echo '__AUTOPILOT_CLAUDE_EOF__'
+          echo '__SHIPWRIGHT_CLAUDE_EOF__'
         } >> "$GITHUB_OUTPUT"
 
     - name: Record success exit code

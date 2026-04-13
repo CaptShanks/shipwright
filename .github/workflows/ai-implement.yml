@@ -10,7 +10,7 @@ on:
       project-context-path:
         description: Path to project knowledge base (relative to repository root).
         type: string
-        default: .github/autopilot/project-context.md
+        default: .github/shipwright/project-context.md
       target-branch:
         description: Branch to create PRs against.
         type: string
@@ -41,8 +41,8 @@ jobs:
       - name: Checkout calling repository
         uses: actions/checkout@v4
 
-      - name: Resolve Autopilot repository and ref from workflow ref
-        id: autopilot
+      - name: Resolve Shipwright repository and ref from workflow ref
+        id: shipwright
         shell: bash
         run: |
           set -euo pipefail
@@ -51,18 +51,18 @@ jobs:
           repo="${path_part%/.github/workflows/*}"
           ref_part="${wf_ref#*@}"
           if [ "$repo" = "$path_part" ]; then
-            echo "::error::Could not derive Autopilot repo from github.workflow_ref=${wf_ref}" >&2
+            echo "::error::Could not derive Shipwright repo from github.workflow_ref=${wf_ref}" >&2
             exit 1
           fi
           echo "repository=${repo}" >> "$GITHUB_OUTPUT"
           echo "ref=${ref_part}" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout Autopilot
+      - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.autopilot.outputs.repository }}
-          path: .autopilot
-          ref: ${{ steps.autopilot.outputs.ref }}
+          repository: ${{ steps.shipwright.outputs.repository }}
+          path: .shipwright
+          ref: ${{ steps.shipwright.outputs.ref }}
 
       - name: Fetch issue details
         id: fetch-issue
@@ -73,12 +73,12 @@ jobs:
           set -euo pipefail
           REPO="${{ github.repository }}"
           ISSUE="${{ inputs.issue-number }}"
-          mkdir -p .autopilot-issue
+          mkdir -p .shipwright-issue
 
           gh issue view "${ISSUE}" --repo "${REPO}" \
-            --json title,body,labels,comments,number > .autopilot-issue/issue.json
+            --json title,body,labels,comments,number > .shipwright-issue/issue.json
 
-          TITLE="$(jq -r '.title // empty' .autopilot-issue/issue.json)"
+          TITLE="$(jq -r '.title // empty' .shipwright-issue/issue.json)"
           {
             echo "title<<__TITLE_EOF__"
             echo "${TITLE}"
@@ -104,22 +104,22 @@ jobs:
             printf 'Issue number: %s\n' "${{ inputs.issue-number }}"
             echo
             echo '### Title'
-            jq -r '.title // empty' .autopilot-issue/issue.json
+            jq -r '.title // empty' .shipwright-issue/issue.json
             echo
             echo '### Body'
-            jq -r '.body // empty' .autopilot-issue/issue.json
+            jq -r '.body // empty' .shipwright-issue/issue.json
             echo
             echo '### Labels'
-            jq -r '(.labels // []) | map(.name) | join(", ")' .autopilot-issue/issue.json
+            jq -r '(.labels // []) | map(.name) | join(", ")' .shipwright-issue/issue.json
             echo
             echo '### Comments (oldest first)'
-            jq -r '(.comments // []) | sort_by(.createdAt) | .[] | "---\n**" + (.author.login // "unknown") + "** at " + (.createdAt // "") + ":\n\n" + (.body // "") + "\n"' .autopilot-issue/issue.json
+            jq -r '(.comments // []) | sort_by(.createdAt) | .[] | "---\n**" + (.author.login // "unknown") + "** at " + (.createdAt // "") + ":\n\n" + (.body // "") + "\n"' .shipwright-issue/issue.json
             echo '__ARCH_PROMPT_EOF__'
           } >> "$GITHUB_OUTPUT"
 
       - name: Run architect agent
         id: architect-agent
-        uses: ./.autopilot/actions/run-ai-agent
+        uses: ./.shipwright/actions/run-ai-agent
         with:
           ai-provider: ${{ inputs.ai-provider }}
           agent-role: architect
@@ -139,16 +139,16 @@ jobs:
       - name: Upload architecture artifact
         uses: actions/upload-artifact@v4
         with:
-          name: autopilot-architecture
+          name: shipwright-architecture
           path: architecture/architecture.md
 
       - name: Post architecture comment on issue
-        uses: ./.autopilot/actions/post-issue-comment
+        uses: ./.shipwright/actions/post-issue-comment
         with:
           issue-number: ${{ inputs.issue-number }}
           comment-tag: architecture
           comment-body: |
-            ## Autopilot — architecture
+            ## Shipwright — architecture
 
             ${{ steps.architect-agent.outputs.result }}
           token: ${{ github.token }}
@@ -169,8 +169,8 @@ jobs:
           ref: ${{ inputs.target-branch }}
           token: ${{ github.token }}
 
-      - name: Resolve Autopilot repository and ref from workflow ref
-        id: autopilot
+      - name: Resolve Shipwright repository and ref from workflow ref
+        id: shipwright
         shell: bash
         run: |
           set -euo pipefail
@@ -181,18 +181,18 @@ jobs:
           echo "repository=${repo}" >> "$GITHUB_OUTPUT"
           echo "ref=${ref_part}" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout Autopilot
+      - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.autopilot.outputs.repository }}
-          path: .autopilot
-          ref: ${{ steps.autopilot.outputs.ref }}
+          repository: ${{ steps.shipwright.outputs.repository }}
+          path: .shipwright
+          ref: ${{ steps.shipwright.outputs.ref }}
 
       - name: Download architecture artifact
         uses: actions/download-artifact@v4
         with:
-          name: autopilot-architecture
-          path: .autopilot-architecture
+          name: shipwright-architecture
+          path: .shipwright-architecture
 
       - name: Create feature branch
         id: branch-meta
@@ -201,7 +201,7 @@ jobs:
           ISSUE: ${{ inputs.issue-number }}
         run: |
           set -euo pipefail
-          BRANCH="autopilot/issue-${ISSUE}"
+          BRANCH="shipwright/issue-${ISSUE}"
           git checkout -b "$BRANCH"
           echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
 
@@ -210,7 +210,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ARCH_FILE=".autopilot-architecture/architecture.md"
+          ARCH_FILE=".shipwright-architecture/architecture.md"
           {
             echo 'prompt<<__IMPL_PROMPT_EOF__'
             echo "Implement the solution for issue #${{ inputs.issue-number }} in this repository."
@@ -223,7 +223,7 @@ jobs:
 
       - name: Run implementer agent
         id: implementer-agent
-        uses: ./.autopilot/actions/run-ai-agent
+        uses: ./.shipwright/actions/run-ai-agent
         with:
           ai-provider: ${{ inputs.ai-provider }}
           agent-role: implementer
@@ -236,7 +236,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ARCH_FILE=".autopilot-architecture/architecture.md"
+          ARCH_FILE=".shipwright-architecture/architecture.md"
           {
             echo 'prompt<<__TEST_PROMPT_EOF__'
             echo "Write or extend automated tests for the changes that implement issue #${{ inputs.issue-number }}."
@@ -250,7 +250,7 @@ jobs:
 
       - name: Run test-engineer agent
         id: test-engineer-agent
-        uses: ./.autopilot/actions/run-ai-agent
+        uses: ./.shipwright/actions/run-ai-agent
         with:
           ai-provider: ${{ inputs.ai-provider }}
           agent-role: test-engineer
@@ -295,11 +295,11 @@ jobs:
       - name: Download architecture artifact (for PR body)
         uses: actions/download-artifact@v4
         with:
-          name: autopilot-architecture
-          path: .autopilot-architecture
+          name: shipwright-architecture
+          path: .shipwright-architecture
 
-      - name: Resolve Autopilot repository and ref from workflow ref
-        id: autopilot
+      - name: Resolve Shipwright repository and ref from workflow ref
+        id: shipwright
         shell: bash
         run: |
           set -euo pipefail
@@ -310,12 +310,12 @@ jobs:
           echo "repository=${repo}" >> "$GITHUB_OUTPUT"
           echo "ref=${ref_part}" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout Autopilot
+      - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.autopilot.outputs.repository }}
-          path: .autopilot
-          ref: ${{ steps.autopilot.outputs.ref }}
+          repository: ${{ steps.shipwright.outputs.repository }}
+          path: .shipwright
+          ref: ${{ steps.shipwright.outputs.ref }}
 
       - name: Ensure PR label exists
         shell: bash
@@ -323,7 +323,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh label create "autopilot:generated" --color "3B82F6" --description "Pull request generated by Autopilot" \
+          gh label create "shipwright:generated" --color "3B82F6" --description "Pull request generated by Shipwright" \
             --repo "${{ github.repository }}" 2>/dev/null || true
 
       - name: Open pull request
@@ -349,11 +349,11 @@ jobs:
             echo
             echo "## Architecture summary"
             echo
-            head -c 12000 .autopilot-architecture/architecture.md
+            head -c 12000 .shipwright-architecture/architecture.md
             echo
             echo "---"
             echo
-            echo "_This pull request was opened automatically by Autopilot from workflow [\`${{ github.workflow }}\`](${WORKFLOW_URL})._"
+            echo "_This pull request was opened automatically by Shipwright from workflow [\`${{ github.workflow }}\`](${WORKFLOW_URL})._"
           } > pr-body.md
 
           PR_URL="$(gh pr create \
@@ -362,17 +362,17 @@ jobs:
             --head "${HEAD}" \
             --title "${PR_TITLE}" \
             --body-file pr-body.md \
-            --label "autopilot:generated")"
+            --label "shipwright:generated")"
 
           echo "url=${PR_URL}" >> "$GITHUB_OUTPUT"
 
       - name: Post implementation comment on issue
-        uses: ./.autopilot/actions/post-issue-comment
+        uses: ./.shipwright/actions/post-issue-comment
         with:
           issue-number: ${{ inputs.issue-number }}
           comment-tag: implementation
           comment-body: |
-            ## Autopilot — implementation
+            ## Shipwright — implementation
 
             Pull request: ${{ steps.open-pr.outputs.url }}
           token: ${{ github.token }}

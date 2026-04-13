@@ -1,5 +1,5 @@
 {
-  "name": "autopilot-full",
+  "name": "shipwright-full",
   "version": "1.0.0",
   "description": "Complete bundle: all 6 agents and all 7 skills",
   "agents": [

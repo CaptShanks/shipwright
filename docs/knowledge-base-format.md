@@ -1,6 +1,6 @@
 # Project knowledge base format (`project-context.md`)
 
-Consumer repositories can provide a **project-specific knowledge base** at `.github/autopilot/project-context.md`. This page explains how to write it so AI agents understand your codebase, constraints, and workflows.
+Consumer repositories can provide a **project-specific knowledge base** at `.github/shipwright/project-context.md`. This page explains how to write it so AI agents understand your codebase, constraints, and workflows.
 
 ## Purpose
 
@@ -71,7 +71,7 @@ Keep sections **scannable** (bullets over prose). Prefer **stable facts**; link 
 
 ## Template
 
-Copy into `.github/autopilot/project-context.md` and fill in.
+Copy into `.github/shipwright/project-context.md` and fill in.
 
 ```markdown
 # Project context

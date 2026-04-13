@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CI validation for the autopilot repository.
+CI validation for the shipwright repository.
 Each subcommand exits with status 1 on failure and prints errors to stderr.
 """
 from __future__ import annotations
@@ -362,7 +362,7 @@ def cmd_actions() -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Autopilot CI validation")
+    parser = argparse.ArgumentParser(description="Shipwright CI validation")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("marketplace", help="Validate .claude-plugin/marketplace.json")

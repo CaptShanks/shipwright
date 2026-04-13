@@ -1,12 +1,12 @@
-# Getting started with Autopilot
+# Getting started with Shipwright
 
-Autopilot provides **Claude Code plugins** (agents and skills for local development) and **GitHub Actions reusable workflows** (triage, implementation, and PR review in CI). This guide walks through both paths.
+Shipwright provides **Claude Code plugins** (agents and skills for local development) and **GitHub Actions reusable workflows** (triage, implementation, and PR review in CI). This guide walks through both paths.
 
 ---
 
 ## Path 1: Claude Code plugin (local development)
 
-Use this path when you want Autopilot’s agents and skills inside [Claude Code](https://docs.anthropic.com/en/docs/claude-code) on your machine.
+Use this path when you want Shipwright’s agents and skills inside [Claude Code](https://docs.anthropic.com/en/docs/claude-code) on your machine.
 
 ### 1. Prerequisites
 
@@ -14,10 +14,10 @@ Use this path when you want Autopilot’s agents and skills inside [Claude Code]
 
 ### 2. Add the marketplace
 
-In Claude Code, register the Autopilot marketplace (one-time per environment):
+In Claude Code, register the Shipwright marketplace (one-time per environment):
 
 ```text
-/plugin marketplace add CaptShanks/autopilot
+/plugin marketplace add CaptShanks/shipwright
 ```
 
 ### 3. Browse available plugins
@@ -28,29 +28,29 @@ List everything the marketplace exposes:
 /plugin marketplace list
 ```
 
-You should see agent plugins (for example `triage-agent`, `architect-agent`, `implementer-agent`, `test-engineer`, `security-reviewer`, `pr-reviewer`), skill-only bundles (for example `go-skills`), and the full bundle `autopilot-full`.
+You should see agent plugins (for example `triage-agent`, `architect-agent`, `implementer-agent`, `test-engineer`, `security-reviewer`, `pr-reviewer`), skill-only bundles (for example `go-skills`), and the full bundle `shipwright-full`.
 
 ### 4. Install individual plugins
 
-Install only what you need by name, scoped to the `autopilot` marketplace:
+Install only what you need by name, scoped to the `shipwright` marketplace:
 
 ```text
-/plugin install security-reviewer@autopilot
+/plugin install security-reviewer@shipwright
 ```
 
-Repeat for other plugins (for example `triage-agent@autopilot`, `pr-reviewer@autopilot`).
+Repeat for other plugins (for example `triage-agent@shipwright`, `pr-reviewer@shipwright`).
 
 ### 5. Install the full bundle
 
 To pull in **all six agents and all bundled skills** in one step:
 
 ```text
-/plugin install autopilot-full@autopilot
+/plugin install shipwright-full@shipwright
 ```
 
 ### 6. How agents and skills become available
 
-After installation, Claude Code loads the plugin’s **agent definitions** and **skills** according to the plugin manifest (for example `autopilot-full` ships every agent under `agents/` and every skill under `skills/`). In practice:
+After installation, Claude Code loads the plugin’s **agent definitions** and **skills** according to the plugin manifest (for example `shipwright-full` ships every agent under `agents/` and every skill under `skills/`). In practice:
 
 - **Agents** show up as invokable roles or subagent-style capabilities aligned with each plugin’s `agents/*.md` definitions (triage, architect, implementer, test-engineer, security-reviewer, pr-reviewer).
 - **Skills** are available as reference material and checklists the model can apply when relevant (security, code quality, testing patterns, Go idioms, and so on).
@@ -61,7 +61,7 @@ If something does not appear after install, confirm the marketplace add succeede
 
 ## Path 2: GitHub Actions (CI/CD automation)
 
-Use this path to run Autopilot **in GitHub Actions** against your repository: issue triage on open/reopen, manual implementation runs that open PRs, and automated PR review comments.
+Use this path to run Shipwright **in GitHub Actions** against your repository: issue triage on open/reopen, manual implementation runs that open PRs, and automated PR review comments.
 
 ### Prerequisites
 
@@ -71,13 +71,13 @@ Use this path to run Autopilot **in GitHub Actions** against your repository: is
 | **`OPENAI_API_KEY` repository secret** | Reusable workflows expect a secret named `AI_API_KEY` **passed from** your repo; storing the key as `OPENAI_API_KEY` and mapping it in the caller is a common convention. The default provider is **Codex** (`ai-provider: codex`), which uses the OpenAI API. |
 | **`dev` branch** | The **implement** workflow defaults `target-branch` to `dev` when opening PRs. Create `dev` (or override `target-branch` in the caller). |
 
-> **Secret wiring:** Autopilot’s reusable workflows declare `secrets: AI_API_KEY`. In each caller below, pass `AI_API_KEY: ${{ secrets.OPENAI_API_KEY }}` (or map from another secret name you prefer).
+> **Secret wiring:** Shipwright’s reusable workflows declare `secrets: AI_API_KEY`. In each caller below, pass `AI_API_KEY: ${{ secrets.OPENAI_API_KEY }}` (or map from another secret name you prefer).
 
 ### Step 1: Project knowledge base
 
 Create a concise knowledge file so agents understand your stack, conventions, and boundaries:
 
-**Path:** `.github/autopilot/project-context.md`
+**Path:** `.github/shipwright/project-context.md`
 
 Follow the structure and sections described in **[knowledge base format](./knowledge-base-format.md)**. The workflows pass this path into the runner; if the file is missing, triage and PR review **continue without** injected context (you will see a notice in logs).
 
@@ -87,7 +87,7 @@ Add issue templates under `.github/ISSUE_TEMPLATE/` so reporters supply repro st
 
 ### Step 3: Caller workflows
 
-Add **thin callers** in your repository that reference pinned versions of Autopilot’s reusable workflows (example uses `@v1`—adjust to the tag or SHA you trust).
+Add **thin callers** in your repository that reference pinned versions of Shipwright’s reusable workflows (example uses `@v1`—adjust to the tag or SHA you trust).
 
 #### `.github/workflows/ai-triage.yml`
 
@@ -105,22 +105,22 @@ permissions:
   contents: read
 
 concurrency:
-  group: autopilot-triage-${{ github.event.issue.number }}
+  group: shipwright-triage-${{ github.event.issue.number }}
   cancel-in-progress: true
 
 jobs:
   triage:
-    uses: CaptShanks/autopilot/.github/workflows/ai-triage.yml@v1
+    uses: CaptShanks/shipwright/.github/workflows/ai-triage.yml@v1
     with:
       ai-provider: codex
-      project-context-path: .github/autopilot/project-context.md
+      project-context-path: .github/shipwright/project-context.md
     secrets:
       AI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 ```
 
 #### `.github/workflows/ai-implement.yml`
 
-Manual workflow: you provide the issue number; Autopilot runs architect → implementer → test-engineer and opens a PR against `dev`.
+Manual workflow: you provide the issue number; Shipwright runs architect → implementer → test-engineer and opens a PR against `dev`.
 
 ```yaml
 name: AI implement
@@ -143,17 +143,17 @@ permissions:
   issues: write
 
 concurrency:
-  group: autopilot-implement-${{ github.event.inputs.issue_number }}
+  group: shipwright-implement-${{ github.event.inputs.issue_number }}
   cancel-in-progress: false
 
 jobs:
   implement:
-    uses: CaptShanks/autopilot/.github/workflows/ai-implement.yml@v1
+    uses: CaptShanks/shipwright/.github/workflows/ai-implement.yml@v1
     with:
       issue-number: ${{ github.event.inputs.issue_number }}
       target-branch: ${{ github.event.inputs.target_branch }}
       ai-provider: codex
-      project-context-path: .github/autopilot/project-context.md
+      project-context-path: .github/shipwright/project-context.md
     secrets:
       AI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 ```
@@ -175,22 +175,22 @@ permissions:
   issues: write
 
 concurrency:
-  group: autopilot-pr-review-${{ github.event.pull_request.number }}
+  group: shipwright-pr-review-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   review:
-    uses: CaptShanks/autopilot/.github/workflows/ai-pr-review.yml@v1
+    uses: CaptShanks/shipwright/.github/workflows/ai-pr-review.yml@v1
     with:
       ai-provider: codex
-      project-context-path: .github/autopilot/project-context.md
+      project-context-path: .github/shipwright/project-context.md
     secrets:
       AI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 ```
 
 ### Step 4: Smoke test
 
-1. Merge the three caller workflows and `.github/autopilot/project-context.md` to your default branch (and ensure `dev` exists if you use the default base branch).
+1. Merge the three caller workflows and `.github/shipwright/project-context.md` to your default branch (and ensure `dev` exists if you use the default base branch).
 2. Under **Settings → Secrets and variables → Actions**, add `OPENAI_API_KEY`.
 3. Open a **sample issue** with a clear title and body (for example a small, well-scoped bug or doc fix).
 4. Confirm the **AI issue triage** workflow ran and left a comment on the issue.
@@ -215,7 +215,7 @@ Use `concurrency` in **caller** workflows (as in the examples) so duplicate even
 
 ### Customizing agent behavior
 
-Edit `.github/autopilot/project-context.md` to describe:
+Edit `.github/shipwright/project-context.md` to describe:
 
 - Tech stack, build/test commands, and folder layout
 - Coding standards, error-handling patterns, and review expectations
@@ -233,8 +233,8 @@ The composite action merges this file into the prompt for each agent step when t
 | Triage succeeds but labels missing | Label permissions or API errors | Confirm job `permissions: issues: write` and check the Actions log for label step warnings. |
 | Implement cannot open PR | Missing `dev` or wrong base branch | Create `dev` or set `target_branch` input / `target-branch` default to your real integration branch. |
 | `AI_API_KEY` errors | Secret not passed to reusable workflow | Map `secrets.AI_API_KEY` in the **caller** to `secrets.OPENAI_API_KEY` (or your chosen secret name). |
-| “Continuing without project context” | Path wrong or file missing | Ensure `.github/autopilot/project-context.md` exists or pass a valid `project-context-path`. |
+| “Continuing without project context” | Path wrong or file missing | Ensure `.github/shipwright/project-context.md` exists or pass a valid `project-context-path`. |
 | PR review never runs | Event filter or permissions | Check `on: pull_request` types and that the workflow file is on the default branch (for first-time setup). |
 | Claude provider in Actions | `ai-provider: claude` not fully implemented | Keep `ai-provider: codex` until Claude support is documented for your org. |
 
-For reproducible behavior, pin the reusable workflow ref (`@v1` or SHA), keep `project-context.md` under version control, and treat Autopilot output as **assistance**: review PRs and issue comments before merging or acting on them.
+For reproducible behavior, pin the reusable workflow ref (`@v1` or SHA), keep `project-context.md` under version control, and treat Shipwright output as **assistance**: review PRs and issue comments before merging or acting on them.

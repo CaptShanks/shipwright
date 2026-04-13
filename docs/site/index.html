@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Autopilot - AI Agents &amp; Skills Marketplace</title>
+<title>Shipwright - AI Agents &amp; Skills Marketplace</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -450,7 +450,7 @@ footer a:hover {
 
 <header>
   <div class="container">
-    <h1><span>Autopilot</span> Marketplace</h1>
+    <h1><span>Shipwright</span> Marketplace</h1>
     <p>AI agents and skills for automated software development. Install individually or grab the full bundle.</p>
     <div class="filters">
       <button class="filter-btn active" data-filter="all">All</button>
@@ -481,21 +481,21 @@ footer a:hover {
     </div>
 
     <div class="modal-section">
-      <h3>Using Autopilot CLI <span class="label-soon">Coming soon</span></h3>
+      <h3>Using Shipwright CLI <span class="label-soon">Coming soon</span></h3>
       <div class="code-block" id="code-cli">
         <button class="copy-btn" data-target="code-cli">Copy</button>
       </div>
     </div>
 
     <div class="modal-footer">
-      <a href="https://github.com/CaptShanks/autopilot" target="_blank" rel="noopener">View on GitHub &rarr;</a>
+      <a href="https://github.com/CaptShanks/shipwright" target="_blank" rel="noopener">View on GitHub &rarr;</a>
     </div>
   </div>
 </div>
 
 <footer>
   <div class="container">
-    <a href="https://github.com/CaptShanks/autopilot">CaptShanks/autopilot</a> &middot; MIT License
+    <a href="https://github.com/CaptShanks/shipwright">CaptShanks/shipwright</a> &middot; MIT License
   </div>
 </footer>
 
@@ -558,8 +558,8 @@ const PLUGINS = [
     skills: ["go-development"]
   },
   {
-    name: "autopilot-full",
-    description: "All 6 agents and all 7 skills in one install. The complete Autopilot experience.",
+    name: "shipwright-full",
+    description: "All 6 agents and all 7 skills in one install. The complete Shipwright experience.",
     version: "1.0.0",
     category: "bundles",
     tags: ["full", "bundle", "all"],
@@ -626,15 +626,15 @@ function openModal(pluginName) {
 
   const claudeText =
     '# Add the marketplace (one time)\n' +
-    '/plugin marketplace add CaptShanks/autopilot\n\n' +
+    '/plugin marketplace add CaptShanks/shipwright\n\n' +
     '# Install this plugin\n' +
-    '/plugin install ' + p.name + '@autopilot';
+    '/plugin install ' + p.name + '@shipwright';
 
   const cliText =
     '# Install the CLI\n' +
-    'go install github.com/CaptShanks/autopilot/cli@latest\n\n' +
+    'go install github.com/CaptShanks/shipwright/cli@latest\n\n' +
     '# Install this plugin\n' +
-    'autopilot install ' + p.name;
+    'shipwright install ' + p.name;
 
   codeClaude.innerHTML =
     '<button class="copy-btn" data-target="claude">Copy</button>' +

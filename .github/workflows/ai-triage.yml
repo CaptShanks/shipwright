@@ -10,7 +10,7 @@ on:
       project-context-path:
         description: Path to project knowledge base
         type: string
-        default: .github/autopilot/project-context.md
+        default: .github/shipwright/project-context.md
     secrets:
       AI_API_KEY:
         description: API key for the AI provider
@@ -27,11 +27,11 @@ jobs:
       - name: Checkout calling repository
         uses: actions/checkout@v4
 
-      - name: Checkout Autopilot
+      - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: CaptShanks/autopilot
-          path: .autopilot
+          repository: CaptShanks/shipwright
+          path: .shipwright
 
       - name: Validate issue event
         id: validate
@@ -109,7 +109,7 @@ jobs:
       - name: Run triage agent
         id: run-ai
         continue-on-error: true
-        uses: ./.autopilot/actions/run-ai-agent
+        uses: ./.shipwright/actions/run-ai-agent
         env:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
         with:
@@ -163,7 +163,7 @@ jobs:
               )
               emit(
                   body,
-                  "autopilot:triage-error",
+                  "shipwright:triage-error",
                   False,
                   "",
               )
@@ -265,7 +265,7 @@ jobs:
           add_labels = ",".join(label_set)
 
           lines = [
-              "## Autopilot triage",
+              "## Shipwright triage",
               "",
           ]
           if summary:
@@ -319,7 +319,7 @@ jobs:
       - name: Post triage result comment
         if: always() && steps.parse.outcome == 'success'
         continue-on-error: true
-        uses: ./.autopilot/actions/post-issue-comment
+        uses: ./.shipwright/actions/post-issue-comment
         with:
           issue-number: ${{ steps.validate.outputs.issue-number }}
           comment-body: ${{ steps.parse.outputs.comment-body }}
@@ -328,7 +328,7 @@ jobs:
       - name: Apply triage labels
         if: always() && steps.parse.outcome == 'success'
         continue-on-error: true
-        uses: ./.autopilot/actions/manage-labels
+        uses: ./.shipwright/actions/manage-labels
         with:
           issue-number: ${{ steps.validate.outputs.issue-number }}
           add-labels: ${{ steps.parse.outputs.add-labels }}
@@ -339,7 +339,7 @@ jobs:
           steps.parse.outcome == 'success' &&
           steps.parse.outputs.post-clarification == 'true'
         continue-on-error: true
-        uses: ./.autopilot/actions/post-issue-comment
+        uses: ./.shipwright/actions/post-issue-comment
         with:
           issue-number: ${{ steps.validate.outputs.issue-number }}
           comment-body: ${{ steps.parse.outputs.clarification-body }}
