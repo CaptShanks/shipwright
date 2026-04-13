@@ -16,3 +16,4 @@ Thumbs.db
 # Test artifacts
 coverage.out
 coverage.html
+scripts/__pycache__/
