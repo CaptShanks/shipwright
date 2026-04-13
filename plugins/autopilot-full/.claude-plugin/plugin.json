@@ -1,0 +1,22 @@
+{
+  "name": "autopilot-full",
+  "version": "1.0.0",
+  "description": "Complete bundle: all 6 agents and all 7 skills",
+  "agents": [
+    "agents/triage.md",
+    "agents/architect.md",
+    "agents/implementer.md",
+    "agents/test-engineer.md",
+    "agents/security-reviewer.md",
+    "agents/pr-reviewer.md"
+  ],
+  "skills": [
+    "skills/security-awareness",
+    "skills/code-quality-fundamentals",
+    "skills/scalability-resilience",
+    "skills/security-owasp",
+    "skills/test-patterns",
+    "skills/code-review-standards",
+    "skills/go-development"
+  ]
+}

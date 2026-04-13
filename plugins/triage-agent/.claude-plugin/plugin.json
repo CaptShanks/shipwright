@@ -1,0 +1,7 @@
+{
+  "name": "triage-agent",
+  "version": "1.0.0",
+  "description": "Analyzes GitHub issues to determine actionability, requests clarification when needed, and classifies issues for downstream agents",
+  "agents": ["agents/triage.md"],
+  "skills": []
+}

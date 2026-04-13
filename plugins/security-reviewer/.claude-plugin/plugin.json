@@ -1,0 +1,10 @@
+{
+  "name": "security-reviewer",
+  "version": "1.0.0",
+  "description": "Reviews code for security vulnerabilities with OWASP knowledge and security awareness skills",
+  "agents": ["agents/security-reviewer.md"],
+  "skills": [
+    "skills/security-awareness",
+    "skills/security-owasp"
+  ]
+}

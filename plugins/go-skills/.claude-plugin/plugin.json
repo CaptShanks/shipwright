@@ -1,0 +1,9 @@
+{
+  "name": "go-skills",
+  "version": "1.0.0",
+  "description": "Go development idioms, patterns, and conventions as a standalone skill",
+  "agents": [],
+  "skills": [
+    "skills/go-development"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "implementer-agent",
+  "version": "1.0.0",
+  "description": "Implements solutions following architecture plans with security, scalability, and code quality skills",
+  "agents": ["agents/implementer.md"],
+  "skills": [
+    "skills/security-awareness",
+    "skills/scalability-resilience",
+    "skills/code-quality-fundamentals"
+  ]
+}

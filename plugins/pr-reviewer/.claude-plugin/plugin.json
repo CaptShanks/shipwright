@@ -1,0 +1,11 @@
+{
+  "name": "pr-reviewer",
+  "version": "1.0.0",
+  "description": "Reviews pull requests for quality with security awareness, code quality, and review standards skills",
+  "agents": ["agents/pr-reviewer.md"],
+  "skills": [
+    "skills/security-awareness",
+    "skills/code-quality-fundamentals",
+    "skills/code-review-standards"
+  ]
+}

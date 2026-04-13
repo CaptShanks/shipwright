@@ -1,0 +1,10 @@
+{
+  "name": "test-engineer",
+  "version": "1.0.0",
+  "description": "Writes comprehensive unit and integration tests with code quality and test pattern skills",
+  "agents": ["agents/test-engineer.md"],
+  "skills": [
+    "skills/code-quality-fundamentals",
+    "skills/test-patterns"
+  ]
+}
