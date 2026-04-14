@@ -67,6 +67,8 @@ def cmd_plugins() -> int:
     for entry in plugins:
         if not isinstance(entry, dict):
             continue
+        if entry.get("category") == "mcps":
+            continue
         source = entry.get("source")
         name = entry.get("name", "?")
         if not source:
@@ -321,6 +323,50 @@ def cmd_symlinks() -> int:
     return 0
 
 
+def cmd_mcps() -> int:
+    mcps_root = REPO_ROOT / "_mcps"
+    if not mcps_root.is_dir():
+        eprint(f"ERROR: Missing _mcps directory: {mcps_root}")
+        return 1
+    data = load_marketplace()
+    mcp_entries = [p for p in data.get("plugins", []) if isinstance(p, dict) and p.get("category") == "mcps"]
+    errors = 0
+    count = 0
+    for entry in mcp_entries:
+        source = entry.get("source", "")
+        name = entry.get("name", "?")
+        mcp_dir = mcps_root / source
+        mcp_json = mcp_dir / "mcp.json"
+        if not mcp_json.is_file():
+            eprint(f"ERROR: [{name}] Missing mcp.json at _mcps/{source}/mcp.json")
+            errors += 1
+            continue
+        try:
+            with open(mcp_json, encoding="utf-8") as f:
+                manifest = json.load(f)
+        except json.JSONDecodeError as ex:
+            eprint(f"ERROR: [{name}] Invalid JSON in _mcps/{source}/mcp.json: {ex}")
+            errors += 1
+            continue
+        for field in ("name", "description", "command", "args"):
+            if field not in manifest or not manifest[field]:
+                eprint(f'ERROR: [{name}] mcp.json missing required field "{field}"')
+                errors += 1
+        if manifest.get("name") and manifest["name"] != source:
+            eprint(
+                f'ERROR: [{name}] mcp.json name "{manifest["name"]}" '
+                f'does not match directory name "{source}"'
+            )
+            errors += 1
+        count += 1
+
+    if errors:
+        eprint(f"ERROR: MCP validation failed ({errors} issue(s)).")
+        return 1
+    print(f"MCP definitions: OK ({count} MCP(s))")
+    return 0
+
+
 def cmd_actions() -> int:
     try:
         import yaml  # type: ignore[import-untyped]
@@ -370,6 +416,7 @@ def main() -> None:
     sub.add_parser("agents", help="Validate plugins/*/agents/*.md")
     sub.add_parser("skills", help="Validate _skills/* layout")
     sub.add_parser("symlinks", help="Validate symlinks under plugins/")
+    sub.add_parser("mcps", help="Validate _mcps/*/mcp.json")
     sub.add_parser("actions", help="Validate actions/*/action.yml (YAML parse)")
 
     args = parser.parse_args()
@@ -379,6 +426,7 @@ def main() -> None:
         "agents": cmd_agents,
         "skills": cmd_skills,
         "symlinks": cmd_symlinks,
+        "mcps": cmd_mcps,
         "actions": cmd_actions,
     }
     code = cmds[args.command]()

@@ -31,6 +31,9 @@ jobs:
       - name: Validate symlinks
         run: python3 scripts/ci_validate.py symlinks
 
+      - name: Validate MCP definitions
+        run: python3 scripts/ci_validate.py mcps
+
       - name: Install PyYAML for action validation
         run: pip install pyyaml
 
