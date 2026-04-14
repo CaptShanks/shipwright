@@ -69,14 +69,14 @@ runs:
           label=$(echo "$item" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           [[ -z "$label" ]] && continue
           enc=$(uri_enc "$label")
-          if gh api "repos/${OWNER}/${REPO_NAME}/labels/${enc}" -s -o /dev/null 2>/dev/null; then
+          if gh api "repos/${OWNER}/${REPO_NAME}/labels/${enc}" --silent 2>/dev/null; then
             continue
           fi
           color=$(color_for_label "$label")
           gh api -X POST "repos/${OWNER}/${REPO_NAME}/labels" \
             -f "name=$label" \
             -f "color=$color" \
-            -s -o /dev/null
+            --silent 2>/dev/null || true
         done
 
     - name: Add labels
@@ -128,7 +128,7 @@ runs:
         fi
 
         printf '%s\n' "${to_add[@]}" | jq -R . | jq -s '{labels: .}' \
-          | gh api -X POST "repos/${OWNER}/${REPO_NAME}/issues/${ISSUE_NUMBER}/labels" --input - -s -o /dev/null
+          | gh api -X POST "repos/${OWNER}/${REPO_NAME}/issues/${ISSUE_NUMBER}/labels" --input - --silent
 
         {
           printf 'added='
@@ -179,7 +179,7 @@ runs:
           label=$(trim "$item")
           [[ -z "$label" ]] && continue
           enc=$(uri_enc "$label")
-          if gh api -X DELETE "repos/${OWNER}/${REPO_NAME}/issues/${ISSUE_NUMBER}/labels/${enc}" -s -o /dev/null 2>/dev/null; then
+          if gh api -X DELETE "repos/${OWNER}/${REPO_NAME}/issues/${ISSUE_NUMBER}/labels/${enc}" --silent 2>/dev/null; then
             removed_list+=("$label")
           fi
         done
