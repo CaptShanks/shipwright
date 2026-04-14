@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       ai-provider:
-        description: AI provider to use
+        description: 'AI provider to use (codex, claude, or github-models)'
         type: string
         default: codex
       project-context-path:
@@ -13,12 +13,13 @@ on:
         default: .github/shipwright/project-context.md
     secrets:
       AI_API_KEY:
-        description: API key for the AI provider
-        required: true
+        description: API key for the AI provider (not required for github-models)
+        required: false
 
 permissions:
   issues: write
   contents: read
+  models: read
 
 jobs:
   triage:

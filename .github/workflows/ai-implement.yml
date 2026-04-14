@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       ai-provider:
-        description: AI provider to use.
+        description: 'AI provider to use (codex, claude, or github-models).'
         type: string
         default: codex
       project-context-path:
@@ -21,13 +21,14 @@ on:
         required: true
     secrets:
       AI_API_KEY:
-        description: API key for the configured AI provider (e.g. OpenAI for Codex).
-        required: true
+        description: API key for the AI provider (not required for github-models).
+        required: false
 
 permissions:
   contents: write
   pull-requests: write
   issues: write
+  models: read
 
 jobs:
   architect:

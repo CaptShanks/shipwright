@@ -7,9 +7,13 @@ description: >
 
 inputs:
   ai-provider:
-    description: 'AI backend to use. One of: codex, claude.'
+    description: 'AI backend to use. One of: codex, claude, github-models.'
     required: false
     default: 'codex'
+  model:
+    description: 'Model name for github-models provider (e.g. gpt-4o, gpt-4.1).'
+    required: false
+    default: 'gpt-4o'
   agent-role:
     description: >
       Which agent definition to load. One of: triage, architect, implementer, test-engineer,
@@ -41,8 +45,8 @@ inputs:
 
 outputs:
   result:
-    description: Primary text output from the AI agent (or the Claude placeholder message).
-    value: ${{ inputs['ai-provider'] == 'codex' && steps.run_codex.outputs['final-message'] || steps.run_claude.outputs.result }}
+    description: Primary text output from the AI agent.
+    value: ${{ steps.run_codex.outputs['final-message'] || steps.run_github_models.outputs.result || steps.run_claude.outputs.result }}
   exit-code:
     description: Exit code for a successful run (0). Unset if a prior step failed.
     value: ${{ steps.record_exit.outputs.code }}
@@ -65,9 +69,9 @@ runs:
         fi
 
         case "$AI_PROVIDER" in
-          codex|claude) ;;
+          codex|claude|github-models) ;;
           *)
-            echo "Invalid ai-provider: $AI_PROVIDER (expected codex or claude)" >&2
+            echo "Invalid ai-provider: $AI_PROVIDER (expected codex, claude, or github-models)" >&2
             exit 1
             ;;
         esac
@@ -192,6 +196,69 @@ runs:
         openai-api-key: ${{ env.AI_API_KEY }}
         working-directory: ${{ github.workspace }}/${{ inputs['working-directory'] }}
         sandbox: ${{ (inputs['agent-role'] == 'implementer' || inputs['agent-role'] == 'test-engineer') && 'workspace-write' || 'read-only' }}
+
+    - name: Run GitHub Models
+      id: run_github_models
+      if: ${{ inputs['ai-provider'] == 'github-models' }}
+      timeout-minutes: ${{ fromJSON(inputs['timeout-minutes']) }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        MODEL: ${{ inputs['model'] }}
+        PROMPT_FILE: ${{ env.PROMPT_FILE }}
+      run: |
+        set -euo pipefail
+
+        python3 <<'PY'
+        import json
+        import os
+        import sys
+        import urllib.request
+        import urllib.error
+
+        token = os.environ["GITHUB_TOKEN"]
+        model = os.environ.get("MODEL", "gpt-4o")
+        prompt_file = os.environ["PROMPT_FILE"]
+
+        with open(prompt_file, encoding="utf-8") as f:
+            prompt = f.read()
+
+        payload = json.dumps({
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.2,
+        }).encode()
+
+        req = urllib.request.Request(
+            "https://models.inference.ai.azure.com/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=600) as resp:
+                body = json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode(errors="replace")
+            print(f"::error::GitHub Models API returned {exc.code}: {detail}", file=sys.stderr)
+            sys.exit(1)
+
+        content = body["choices"][0]["message"]["content"]
+        usage = body.get("usage", {})
+        print(f"Model: {model}  Tokens: prompt={usage.get('prompt_tokens','?')} completion={usage.get('completion_tokens','?')}")
+
+        out_path = os.environ["GITHUB_OUTPUT"]
+        delim = "__SHIPWRIGHT_GHM_EOF__"
+        with open(out_path, "a", encoding="utf-8") as out:
+            out.write(f"result<<{delim}\n")
+            out.write(content)
+            if not content.endswith("\n"):
+                out.write("\n")
+            out.write(f"{delim}\n")
+        PY
 
     - name: Run Claude
       id: run_claude
