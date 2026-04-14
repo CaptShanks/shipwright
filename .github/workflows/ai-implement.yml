@@ -181,14 +181,15 @@ jobs:
         run: |
           set -euo pipefail
           ARCH_FILE=".shipwright-architecture/architecture.md"
+          DELIM="SHIPWRIGHT_IMPL_$(openssl rand -hex 8)"
           {
-            echo 'prompt<<__IMPL_PROMPT_EOF__'
+            echo "prompt<<${DELIM}"
             echo "Implement the solution for issue #${{ inputs.issue-number }} in this repository."
             echo 'Follow the architecture and implementation plan below. Make minimal, cohesive changes; match existing project conventions.'
             echo
             echo '## Architecture and implementation plan'
             cat "$ARCH_FILE"
-            echo '__IMPL_PROMPT_EOF__'
+            echo "${DELIM}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Run implementer agent
@@ -207,15 +208,16 @@ jobs:
         run: |
           set -euo pipefail
           ARCH_FILE=".shipwright-architecture/architecture.md"
+          DELIM="SHIPWRIGHT_TEST_$(openssl rand -hex 8)"
           {
-            echo 'prompt<<__TEST_PROMPT_EOF__'
+            echo "prompt<<${DELIM}"
             echo "Write or extend automated tests for the changes that implement issue #${{ inputs.issue-number }}."
             echo 'Cover meaningful behavior, edge cases, and regressions suggested by the architecture.'
             echo 'Align with the existing test frameworks and style in this repository.'
             echo
             echo '## Architecture and implementation plan (reference)'
             cat "$ARCH_FILE"
-            echo '__TEST_PROMPT_EOF__'
+            echo "${DELIM}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Run test-engineer agent
