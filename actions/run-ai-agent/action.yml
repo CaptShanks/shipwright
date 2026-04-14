@@ -11,9 +11,9 @@ inputs:
     required: false
     default: 'codex'
   model:
-    description: 'Model name for github-models provider (e.g. gpt-4o, gpt-4.1).'
+    description: 'Model name for github-models provider (e.g. gpt-4o-mini, gpt-4o, gpt-4.1).'
     required: false
-    default: 'gpt-4o'
+    default: 'gpt-4o-mini'
   agent-role:
     description: >
       Which agent definition to load. One of: triage, architect, implementer, test-engineer,
@@ -159,23 +159,27 @@ runs:
         USER_PROMPT: ${{ inputs['agent-prompt'] }}
         MAX_TOKENS: ${{ inputs['max-tokens'] }}
         TIMEOUT_MINUTES: ${{ inputs['timeout-minutes'] }}
+        AI_PROVIDER: ${{ inputs['ai-provider'] }}
       run: |
         set -euo pipefail
+
+        agent_def="$AGENT_DEFINITION"
+        project_ctx="$PROJECT_CONTEXT"
+
+        if [ "$AI_PROVIDER" = "github-models" ]; then
+          agent_def="$(printf '%s' "$agent_def" | head -c 3000)"
+          project_ctx="$(printf '%s' "$project_ctx" | head -c 2000)"
+        fi
 
         PROMPT_FILE="${RUNNER_TEMP}/shipwright_full_prompt.txt"
         {
           echo '# Agent definition'
           echo
-          printf '%s\n' "$AGENT_DEFINITION"
+          printf '%s\n' "$agent_def"
           echo
           echo '# Project context'
           echo
-          printf '%s\n' "$PROJECT_CONTEXT"
-          echo
-          echo '# Run configuration'
-          echo
-          echo "- Target max response tokens (guidance): ${MAX_TOKENS}"
-          echo "- Step timeout (minutes): ${TIMEOUT_MINUTES}"
+          printf '%s\n' "$project_ctx"
           echo
           echo '# Task'
           echo
