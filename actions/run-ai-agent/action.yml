@@ -201,7 +201,7 @@ runs:
       if: ${{ inputs['ai-provider'] == 'github-models' }}
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_TOKEN: ${{ env.AI_API_KEY }}
         MODEL: ${{ inputs['model'] }}
         PROMPT_FILE: ${{ env.PROMPT_FILE }}
       run: |
