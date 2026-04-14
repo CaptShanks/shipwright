@@ -1,0 +1,9 @@
+{
+  "name": "security-owasp",
+  "version": "1.0.0",
+  "description": "OWASP Top 10 review guidance with concrete code patterns and severity bands",
+  "agents": [],
+  "skills": [
+    "skills/security-owasp"
+  ]
+}

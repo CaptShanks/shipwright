@@ -1,0 +1,9 @@
+{
+  "name": "code-review-standards",
+  "version": "1.0.0",
+  "description": "Code review methodology, severity classification, and actionable feedback standards",
+  "agents": [],
+  "skills": [
+    "skills/code-review-standards"
+  ]
+}

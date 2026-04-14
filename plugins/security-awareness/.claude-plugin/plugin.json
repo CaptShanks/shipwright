@@ -1,0 +1,9 @@
+{
+  "name": "security-awareness",
+  "version": "1.0.0",
+  "description": "Input validation, secret handling, least privilege, and defensive coding fundamentals",
+  "agents": [],
+  "skills": [
+    "skills/security-awareness"
+  ]
+}

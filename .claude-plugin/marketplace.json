@@ -64,9 +64,63 @@
       "keywords": ["review", "code-quality", "pr", "pull-request"]
     },
     {
+      "name": "security-awareness",
+      "source": "security-awareness",
+      "description": "Input validation, secret handling, least privilege, and defensive coding fundamentals",
+      "version": "1.0.0",
+      "category": "skills",
+      "tags": ["security", "input-validation", "secrets"],
+      "keywords": ["security", "input-validation", "secrets", "least-privilege", "defensive-coding"]
+    },
+    {
+      "name": "code-quality-fundamentals",
+      "source": "code-quality-fundamentals",
+      "description": "Naming conventions, SOLID principles, error handling, and code organization",
+      "version": "1.0.0",
+      "category": "skills",
+      "tags": ["quality", "solid", "naming"],
+      "keywords": ["naming", "solid", "error-handling", "code-organization", "refactoring"]
+    },
+    {
+      "name": "scalability-resilience",
+      "source": "scalability-resilience",
+      "description": "Single points of failure, graceful degradation, idempotency, and resilience patterns",
+      "version": "1.0.0",
+      "category": "skills",
+      "tags": ["scalability", "resilience", "reliability"],
+      "keywords": ["scalability", "resilience", "idempotency", "graceful-degradation", "retry"]
+    },
+    {
+      "name": "security-owasp",
+      "source": "security-owasp",
+      "description": "OWASP Top 10 review guidance with concrete code patterns and severity bands",
+      "version": "1.0.0",
+      "category": "skills",
+      "tags": ["owasp", "security", "vulnerabilities"],
+      "keywords": ["owasp", "top-10", "injection", "xss", "appsec", "vulnerability"]
+    },
+    {
+      "name": "test-patterns",
+      "source": "test-patterns",
+      "description": "Testing strategies, mocking, fixture management, edge cases, and the testing pyramid",
+      "version": "1.0.0",
+      "category": "skills",
+      "tags": ["testing", "mocking", "fixtures"],
+      "keywords": ["testing", "unit-tests", "mocking", "fixtures", "edge-cases", "testing-pyramid"]
+    },
+    {
+      "name": "code-review-standards",
+      "source": "code-review-standards",
+      "description": "Code review methodology, severity classification, and actionable feedback standards",
+      "version": "1.0.0",
+      "category": "skills",
+      "tags": ["review", "feedback", "standards"],
+      "keywords": ["code-review", "feedback", "severity", "methodology", "pull-request"]
+    },
+    {
       "name": "go-skills",
       "source": "go-skills",
-      "description": "Go development skill with idioms, patterns, and examples; standalone, no agent",
+      "description": "Go development idioms, patterns, and conventions",
       "version": "1.0.0",
       "category": "skills",
       "tags": ["go", "golang"],

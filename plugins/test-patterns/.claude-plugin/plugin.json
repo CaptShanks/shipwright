@@ -1,0 +1,9 @@
+{
+  "name": "test-patterns",
+  "version": "1.0.0",
+  "description": "Testing strategies, mocking, fixture management, edge case identification, and the testing pyramid",
+  "agents": [],
+  "skills": [
+    "skills/test-patterns"
+  ]
+}

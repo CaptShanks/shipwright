@@ -1,0 +1,9 @@
+{
+  "name": "code-quality-fundamentals",
+  "version": "1.0.0",
+  "description": "Naming conventions, SOLID principles, error handling, and code organization fundamentals",
+  "agents": [],
+  "skills": [
+    "skills/code-quality-fundamentals"
+  ]
+}

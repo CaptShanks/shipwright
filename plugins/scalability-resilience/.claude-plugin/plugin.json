@@ -1,0 +1,9 @@
+{
+  "name": "scalability-resilience",
+  "version": "1.0.0",
+  "description": "Single points of failure, graceful degradation, idempotency, and resilience patterns",
+  "agents": [],
+  "skills": [
+    "skills/scalability-resilience"
+  ]
+}
