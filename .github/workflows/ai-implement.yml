@@ -176,21 +176,17 @@ jobs:
           echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
 
       - name: Build implementer prompt
-        id: implementer-prompt
         shell: bash
         run: |
           set -euo pipefail
           ARCH_FILE=".shipwright-architecture/architecture.md"
-          DELIM="SHIPWRIGHT_IMPL_$(openssl rand -hex 8)"
           {
-            echo "prompt<<${DELIM}"
             echo "Implement the solution for issue #${{ inputs.issue-number }} in this repository."
             echo 'Follow the architecture and implementation plan below. Make minimal, cohesive changes; match existing project conventions.'
             echo
             echo '## Architecture and implementation plan'
             cat "$ARCH_FILE"
-            echo "${DELIM}"
-          } >> "$GITHUB_OUTPUT"
+          } > "${RUNNER_TEMP}/impl_prompt.md"
 
       - name: Run implementer agent
         id: implementer-agent
@@ -198,27 +194,23 @@ jobs:
         with:
           ai-provider: ${{ inputs.ai-provider }}
           agent-role: implementer
-          agent-prompt: ${{ steps.implementer-prompt.outputs.prompt }}
+          agent-prompt-file: ${{ runner.temp }}/impl_prompt.md
           project-context-path: ${{ inputs.project-context-path }}
           working-directory: .
 
       - name: Build test-engineer prompt
-        id: test-prompt
         shell: bash
         run: |
           set -euo pipefail
           ARCH_FILE=".shipwright-architecture/architecture.md"
-          DELIM="SHIPWRIGHT_TEST_$(openssl rand -hex 8)"
           {
-            echo "prompt<<${DELIM}"
             echo "Write or extend automated tests for the changes that implement issue #${{ inputs.issue-number }}."
             echo 'Cover meaningful behavior, edge cases, and regressions suggested by the architecture.'
             echo 'Align with the existing test frameworks and style in this repository.'
             echo
             echo '## Architecture and implementation plan (reference)'
             cat "$ARCH_FILE"
-            echo "${DELIM}"
-          } >> "$GITHUB_OUTPUT"
+          } > "${RUNNER_TEMP}/test_prompt.md"
 
       - name: Run test-engineer agent
         id: test-engineer-agent
@@ -226,7 +218,7 @@ jobs:
         with:
           ai-provider: ${{ inputs.ai-provider }}
           agent-role: test-engineer
-          agent-prompt: ${{ steps.test-prompt.outputs.prompt }}
+          agent-prompt-file: ${{ runner.temp }}/test_prompt.md
           project-context-path: ${{ inputs.project-context-path }}
           working-directory: .
 
