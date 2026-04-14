@@ -59,6 +59,17 @@ jobs:
           fi
           echo "effective=${effective}" >> "$GITHUB_OUTPUT"
 
+      - name: Fetch full issue with comments
+        id: fetch-issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.validate.outputs.issue-number }}
+        run: |
+          set -euo pipefail
+          gh issue view "${ISSUE_NUMBER}" --repo "${{ github.repository }}" \
+            --json title,body,labels,comments,number,author > "${RUNNER_TEMP}/issue.json"
+
       - name: Build triage prompt
         id: build-prompt
         shell: bash
@@ -68,26 +79,40 @@ jobs:
           import json
           import os
 
-          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as f:
-              event = json.load(f)
-          issue = event.get("issue") or {}
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "issue.json"), encoding="utf-8") as f:
+              issue = json.load(f)
           title = issue.get("title") or ""
           body = issue.get("body") or ""
-          author = (issue.get("user") or {}).get("login") or ""
+          author = (issue.get("author") or {}).get("login") or ""
           labels = ", ".join(
               str(l.get("name", "")).strip()
               for l in (issue.get("labels") or [])
               if str(l.get("name", "")).strip()
           )
           number = issue.get("number")
+
+          comments_section = ""
+          comments = issue.get("comments") or []
+          if comments:
+              parts = []
+              for c in sorted(comments, key=lambda x: x.get("createdAt", "")):
+                  c_author = (c.get("author") or {}).get("login") or "unknown"
+                  c_body = c.get("body") or ""
+                  if c_body.strip().startswith("<!-- shipwright:"):
+                      continue
+                  parts.append(f"**{c_author}:**\n{c_body}")
+              if parts:
+                  comments_section = "\n\n**Comments (oldest first):**\n\n" + "\n\n---\n\n".join(parts)
+
           prompt = (
               f"## Issue to Triage\n\n"
               f"**Title:** {title}\n"
               f"**Author:** {author}\n"
               f"**Labels:** {labels}\n\n"
-              f"**Body:**\n{body}\n\n"
+              f"**Body:**\n{body}\n"
+              f"{comments_section}\n\n"
               "## Your Task\n"
-              "Analyze this issue and provide your triage assessment. Determine if this issue is:\n"
+              "Analyze this issue (including any comments with clarifications) and provide your triage assessment. Determine if this issue is:\n"
               "1. Actionable as-is (ready for architecture/implementation)\n"
               "2. Needs clarification (specify what questions to ask)\n"
               "3. A duplicate (identify the original)\n"
