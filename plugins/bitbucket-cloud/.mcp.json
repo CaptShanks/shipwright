@@ -1,0 +1,6 @@
+{
+  "bitbucket-cloud": {
+    "command": "npx",
+    "args": ["-y", "bitbucket-mcp@latest"]
+  }
+}
