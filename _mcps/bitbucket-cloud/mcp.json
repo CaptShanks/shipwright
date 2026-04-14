@@ -1,0 +1,12 @@
+{
+  "name": "bitbucket-cloud",
+  "description": "Bitbucket Cloud API integration for repository management, pull requests, commits, and code review. Supports PR lifecycle including create, review, approve, and merge.",
+  "command": "uvx",
+  "args": ["bitbucket-mcp-cloud"],
+  "env": {
+    "BITBUCKET_USERNAME": "",
+    "BITBUCKET_TOKEN": "",
+    "BITBUCKET_DEFAULT_WORKSPACE": ""
+  },
+  "tags": ["bitbucket", "git", "pull-requests", "code-review"]
+}

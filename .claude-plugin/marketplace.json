@@ -73,13 +73,49 @@
       "keywords": ["go", "golang", "idioms", "patterns"]
     },
     {
+      "name": "context7",
+      "source": "context7",
+      "description": "Fetch up-to-date library and framework documentation via Context7",
+      "version": "1.0.0",
+      "category": "mcps",
+      "tags": ["docs", "documentation", "libraries"],
+      "keywords": ["docs", "libraries", "frameworks", "context7", "documentation"]
+    },
+    {
+      "name": "serena",
+      "source": "serena",
+      "description": "Semantic code navigation, symbol-level editing, and persistent project memories",
+      "version": "1.0.0",
+      "category": "mcps",
+      "tags": ["code-navigation", "symbols", "editing"],
+      "keywords": ["lsp", "symbols", "semantic", "code-navigation", "serena"]
+    },
+    {
+      "name": "mcp-atlassian",
+      "source": "mcp-atlassian",
+      "description": "Jira and Confluence integration for issue tracking and documentation",
+      "version": "1.0.0",
+      "category": "mcps",
+      "tags": ["jira", "confluence", "atlassian"],
+      "keywords": ["jira", "confluence", "atlassian", "issues", "project-management"]
+    },
+    {
+      "name": "bitbucket-cloud",
+      "source": "bitbucket-cloud",
+      "description": "Bitbucket Cloud API for repositories, pull requests, and code review",
+      "version": "1.0.0",
+      "category": "mcps",
+      "tags": ["bitbucket", "git", "pull-requests"],
+      "keywords": ["bitbucket", "git", "pull-requests", "code-review"]
+    },
+    {
       "name": "shipwright-full",
       "source": "shipwright-full",
-      "description": "All 6 agents + all 7 skills in one install",
+      "description": "All 6 agents + all 7 skills + all 4 MCPs in one install",
       "version": "1.0.0",
       "category": "bundles",
       "tags": ["full", "bundle", "all"],
-      "keywords": ["full", "bundle", "complete", "all-agents", "all-skills"]
+      "keywords": ["full", "bundle", "complete", "all-agents", "all-skills", "all-mcps"]
     }
   ]
 }

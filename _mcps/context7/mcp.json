@@ -1,0 +1,8 @@
+{
+  "name": "context7",
+  "description": "Fetch up-to-date library and framework documentation. Use when working with any library, framework, SDK, API, or CLI tool to get current docs instead of relying on training data.",
+  "command": "npx",
+  "args": ["-y", "@upstash/context7-mcp"],
+  "env": {},
+  "tags": ["docs", "documentation", "libraries", "frameworks"]
+}

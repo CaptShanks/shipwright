@@ -42,6 +42,16 @@ type CachedMarketplace struct {
 	Marketplace Marketplace `json:"marketplace"`
 }
 
+// McpManifest represents an MCP server template from the _mcps/ directory.
+type McpManifest struct {
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Command     string            `json:"command"`
+	Args        []string          `json:"args"`
+	Env         map[string]string `json:"env"`
+	Tags        []string          `json:"tags"`
+}
+
 // GitHubContent represents a file or directory entry from the GitHub Contents API.
 type GitHubContent struct {
 	Name        string `json:"name"`

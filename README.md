@@ -19,7 +19,7 @@ Each agent is deeply opinionated about how to do its job well -- not just "write
 
 ### Path 1: Ship CLI (Universal)
 
-Install agents and skills into any supported AI tool (Cursor, Claude Code, Codex):
+Install agents, skills, and MCPs into any supported AI tool (Cursor, Claude Code, VS Code, Codex):
 
 ```shell
 # Install the CLI
@@ -42,6 +42,12 @@ ship info pr-reviewer
 ship list
 ship uninstall triage-agent
 ship update
+
+# Manage MCP servers
+ship mcp list
+ship mcp install context7
+ship mcp install mcp-atlassian --target cursor --global
+ship mcp remove context7
 ```
 
 ### Path 2: Claude Code Plugin (Local Development)
@@ -92,7 +98,16 @@ jobs:
 | `security-reviewer` | Agent + Skills | Security review (+ security-awareness, security-owasp) |
 | `pr-reviewer` | Agent + Skills | PR review (+ security-awareness, code-quality-fundamentals, code-review-standards) |
 | `go-skills` | Skill | Go development idioms and patterns |
-| `shipwright-full` | Bundle | All 6 agents + all 7 skills |
+| `shipwright-full` | Bundle | All 6 agents + all 7 skills + all 4 MCPs |
+
+### Available MCPs
+
+| MCP | Description | Env Vars |
+|-----|-------------|----------|
+| `context7` | Library and framework documentation via Context7 | None |
+| `serena` | Semantic code navigation and symbol-level editing | None |
+| `mcp-atlassian` | Jira + Confluence integration | 5 required |
+| `bitbucket-cloud` | Bitbucket Cloud PR and repo management | 3 required |
 
 ## Integrating with Your Repo
 

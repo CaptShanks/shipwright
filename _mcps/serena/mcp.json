@@ -1,0 +1,15 @@
+{
+  "name": "serena",
+  "description": "Semantic code navigation and symbol-level editing. Provides LSP-like symbol overview, search, references, and precise symbol-level code modifications with persistent project memories.",
+  "command": "uvx",
+  "args": [
+    "--from",
+    "git+https://github.com/oraios/serena",
+    "serena",
+    "start-mcp-server",
+    "--context",
+    "ide-assistant"
+  ],
+  "env": {},
+  "tags": ["code-navigation", "symbols", "editing", "lsp", "semantic"]
+}

@@ -83,6 +83,21 @@ func (c *Client) FetchPluginManifest(pluginSource string) (*PluginManifest, erro
 	return &pm, nil
 }
 
+// FetchMcpManifest returns an MCP's mcp.json from _mcps/<name>/.
+func (c *Client) FetchMcpManifest(mcpName string) (*McpManifest, error) {
+	path := fmt.Sprintf("_mcps/%s/mcp.json", mcpName)
+	raw, err := c.fetchRawFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("fetching MCP manifest for %s: %w", mcpName, err)
+	}
+
+	var m McpManifest
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, fmt.Errorf("parsing mcp.json for %s: %w", mcpName, err)
+	}
+	return &m, nil
+}
+
 // FetchFileContent downloads a single file's raw content by repo path.
 func (c *Client) FetchFileContent(repoPath string) ([]byte, error) {
 	return c.fetchRawFile(repoPath)

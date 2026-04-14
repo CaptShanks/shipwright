@@ -1,0 +1,14 @@
+{
+  "name": "mcp-atlassian",
+  "description": "Jira and Confluence integration for issue tracking, sprint management, and documentation. Supports full CRUD on issues, sprints, boards, pages, comments, and attachments.",
+  "command": "uvx",
+  "args": ["mcp-atlassian"],
+  "env": {
+    "JIRA_URL": "",
+    "JIRA_PERSONAL_TOKEN": "",
+    "CONFLUENCE_URL": "",
+    "CONFLUENCE_USERNAME": "",
+    "CONFLUENCE_API_TOKEN": ""
+  },
+  "tags": ["jira", "confluence", "atlassian", "project-management", "issues"]
+}

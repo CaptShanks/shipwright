@@ -197,6 +197,7 @@ header p {
 .badge-agents { color: var(--badge-agent); background: var(--badge-agent-bg); }
 .badge-skills { color: var(--badge-skill); background: var(--badge-skill-bg); }
 .badge-bundles { color: var(--badge-bundle); background: var(--badge-bundle-bg); }
+.badge-mcps { color: var(--badge-bundle); background: var(--badge-bundle-bg); }
 
 .card-name {
   font-size: 1.1rem;
@@ -451,11 +452,12 @@ footer a:hover {
 <header>
   <div class="container">
     <h1><span>Shipwright</span> Marketplace</h1>
-    <p>AI agents and skills for automated software development. Install individually or grab the full bundle.</p>
+    <p>AI agents, skills, and MCP servers for automated software development. Install individually or grab the full bundle.</p>
     <div class="filters">
       <button class="filter-btn active" data-filter="all">All</button>
       <button class="filter-btn" data-filter="agents">Agents</button>
       <button class="filter-btn" data-filter="skills">Skills</button>
+      <button class="filter-btn" data-filter="mcps">MCPs</button>
       <button class="filter-btn" data-filter="bundles">Bundles</button>
     </div>
   </div>
@@ -558,8 +560,42 @@ const PLUGINS = [
     skills: ["go-development"]
   },
   {
+    name: "context7",
+    description: "Fetch up-to-date library and framework documentation. Works with any library, framework, SDK, or API.",
+    version: "1.0.0",
+    category: "mcps",
+    tags: ["docs", "documentation", "libraries"],
+    skills: []
+  },
+  {
+    name: "serena",
+    description: "Semantic code navigation, symbol-level editing, and persistent project memories via LSP-like tooling.",
+    version: "1.0.0",
+    category: "mcps",
+    tags: ["code-navigation", "symbols", "editing"],
+    skills: []
+  },
+  {
+    name: "mcp-atlassian",
+    description: "Jira and Confluence integration for issue tracking, sprint management, and documentation.",
+    version: "1.0.0",
+    category: "mcps",
+    tags: ["jira", "confluence", "atlassian"],
+    skills: [],
+    envVars: 5
+  },
+  {
+    name: "bitbucket-cloud",
+    description: "Bitbucket Cloud API for repositories, pull requests, commits, and code review.",
+    version: "1.0.0",
+    category: "mcps",
+    tags: ["bitbucket", "git", "pull-requests"],
+    skills: [],
+    envVars: 3
+  },
+  {
     name: "shipwright-full",
-    description: "All 6 agents and all 7 skills in one install. The complete Shipwright experience.",
+    description: "All 6 agents, all 7 skills, and all 4 MCPs in one install. The complete Shipwright experience.",
     version: "1.0.0",
     category: "bundles",
     tags: ["full", "bundle", "all"],
@@ -588,6 +624,7 @@ function renderCards(filter) {
     const badgeClass = "badge-" + p.category;
     const badgeLabel = p.category === "agents" ? "Agent"
                      : p.category === "skills" ? "Skill"
+                     : p.category === "mcps" ? "MCP"
                      : "Bundle";
 
     let skillsHtml = "";
@@ -595,6 +632,11 @@ function renderCards(filter) {
       skillsHtml = '<div class="card-skills">' +
         p.skills.map(s => '<span class="skill-pill">' + s + '</span>').join("") +
         '</div>';
+    }
+
+    let envHtml = "";
+    if (p.envVars) {
+      envHtml = '<div class="card-skills"><span class="skill-pill">' + p.envVars + ' env vars required</span></div>';
     }
 
     const tagsHtml = p.tags.map(t => '<span class="tag">' + t + '</span>').join("");
@@ -607,6 +649,7 @@ function renderCards(filter) {
       '</div>' +
       '<p class="card-desc">' + p.description + '</p>' +
       skillsHtml +
+      envHtml +
       '<div class="card-tags">' + tagsHtml + '</div>' +
       '<button class="install-btn" data-plugin="' + p.name + '">' +
         '<svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 110 16A8 8 0 018 0zm.75 4.75a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z"/></svg>' +
@@ -624,17 +667,21 @@ function openModal(pluginName) {
   modalTitle.textContent = "Install " + p.name;
   modalDesc.textContent = p.description;
 
-  const claudeText =
-    '# Add the marketplace (one time)\n' +
-    '/plugin marketplace add CaptShanks/shipwright\n\n' +
-    '# Install this plugin\n' +
-    '/plugin install ' + p.name + '@shipwright';
+  const isMcp = p.category === "mcps";
+
+  const claudeText = isMcp
+    ? '# MCPs are installed via the Ship CLI\n' +
+      '# Claude Code does not have a native MCP plugin command'
+    : '# Add the marketplace (one time)\n' +
+      '/plugin marketplace add CaptShanks/shipwright\n\n' +
+      '# Install this plugin\n' +
+      '/plugin install ' + p.name + '@shipwright';
 
   const cliText =
     '# Install the CLI\n' +
     'go install github.com/CaptShanks/shipwright/cli/cmd/ship@latest\n\n' +
-    '# Install this plugin\n' +
-    'ship install ' + p.name;
+    '# Install ' + (isMcp ? 'this MCP' : 'this plugin') + '\n' +
+    (isMcp ? 'ship mcp install ' : 'ship install ') + p.name;
 
   codeClaude.innerHTML =
     '<button class="copy-btn" data-target="claude">Copy</button>' +
