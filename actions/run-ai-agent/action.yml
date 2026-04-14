@@ -187,7 +187,6 @@ runs:
     - name: Run Codex
       id: run_codex
       if: ${{ inputs['ai-provider'] == 'codex' }}
-      timeout-minutes: ${{ fromJSON(inputs['timeout-minutes']) }}
       uses: openai/codex-action@v1
       env:
         OPENAI_API_KEY: ${{ env.AI_API_KEY }}
@@ -200,7 +199,6 @@ runs:
     - name: Run GitHub Models
       id: run_github_models
       if: ${{ inputs['ai-provider'] == 'github-models' }}
-      timeout-minutes: ${{ fromJSON(inputs['timeout-minutes']) }}
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
