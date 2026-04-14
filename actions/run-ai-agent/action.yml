@@ -285,13 +285,8 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        msg='Claude provider coming soon'
-        echo "$msg"
-        {
-          echo 'result<<__SHIPWRIGHT_CLAUDE_EOF__'
-          echo "$msg"
-          echo '__SHIPWRIGHT_CLAUDE_EOF__'
-        } >> "$GITHUB_OUTPUT"
+        echo '::notice::Claude provider is available via claude-code-action. Use ai-provider: github-models for text analysis or claude-code-action directly for code implementation.'
+        echo 'result=' >> "$GITHUB_OUTPUT"
 
     - name: Record success exit code
       id: record_exit
