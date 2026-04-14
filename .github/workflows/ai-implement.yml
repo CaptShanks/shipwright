@@ -41,28 +41,11 @@ jobs:
       - name: Checkout calling repository
         uses: actions/checkout@v4
 
-      - name: Resolve Shipwright repository and ref from workflow ref
-        id: shipwright
-        shell: bash
-        run: |
-          set -euo pipefail
-          wf_ref="${{ github.workflow_ref }}"
-          path_part="${wf_ref%@*}"
-          repo="${path_part%/.github/workflows/*}"
-          ref_part="${wf_ref#*@}"
-          if [ "$repo" = "$path_part" ]; then
-            echo "::error::Could not derive Shipwright repo from github.workflow_ref=${wf_ref}" >&2
-            exit 1
-          fi
-          echo "repository=${repo}" >> "$GITHUB_OUTPUT"
-          echo "ref=${ref_part}" >> "$GITHUB_OUTPUT"
-
       - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.shipwright.outputs.repository }}
+          repository: CaptShanks/shipwright
           path: .shipwright
-          ref: ${{ steps.shipwright.outputs.ref }}
 
       - name: Fetch issue details
         id: fetch-issue
@@ -169,24 +152,11 @@ jobs:
           ref: ${{ inputs.target-branch }}
           token: ${{ github.token }}
 
-      - name: Resolve Shipwright repository and ref from workflow ref
-        id: shipwright
-        shell: bash
-        run: |
-          set -euo pipefail
-          wf_ref="${{ github.workflow_ref }}"
-          path_part="${wf_ref%@*}"
-          repo="${path_part%/.github/workflows/*}"
-          ref_part="${wf_ref#*@}"
-          echo "repository=${repo}" >> "$GITHUB_OUTPUT"
-          echo "ref=${ref_part}" >> "$GITHUB_OUTPUT"
-
       - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.shipwright.outputs.repository }}
+          repository: CaptShanks/shipwright
           path: .shipwright
-          ref: ${{ steps.shipwright.outputs.ref }}
 
       - name: Download architecture artifact
         uses: actions/download-artifact@v4
@@ -298,24 +268,11 @@ jobs:
           name: shipwright-architecture
           path: .shipwright-architecture
 
-      - name: Resolve Shipwright repository and ref from workflow ref
-        id: shipwright
-        shell: bash
-        run: |
-          set -euo pipefail
-          wf_ref="${{ github.workflow_ref }}"
-          path_part="${wf_ref%@*}"
-          repo="${path_part%/.github/workflows/*}"
-          ref_part="${wf_ref#*@}"
-          echo "repository=${repo}" >> "$GITHUB_OUTPUT"
-          echo "ref=${ref_part}" >> "$GITHUB_OUTPUT"
-
       - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.shipwright.outputs.repository }}
+          repository: CaptShanks/shipwright
           path: .shipwright
-          ref: ${{ steps.shipwright.outputs.ref }}
 
       - name: Ensure PR label exists
         shell: bash

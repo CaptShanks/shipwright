@@ -30,16 +30,6 @@ jobs:
       security-summary: ${{ steps.derive.outputs.summary }}
       security-severity: ${{ steps.derive.outputs.severity }}
     steps:
-      - name: Resolve Shipwright repository
-        id: shipwright
-        shell: bash
-        run: |
-          set -euo pipefail
-          ref="${{ github.workflow_ref }}"
-          path="${ref%%@*}"
-          repo="${path%/.github/workflows/*}"
-          echo "repo=${repo}" >> "$GITHUB_OUTPUT"
-
       - name: Checkout PR head
         uses: actions/checkout@v4
         with:
@@ -48,9 +38,8 @@ jobs:
       - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.shipwright.outputs.repo }}
+          repository: CaptShanks/shipwright
           path: .shipwright
-          token: ${{ github.token }}
 
       - name: Resolve project context path
         id: project_ctx
@@ -172,16 +161,6 @@ jobs:
       review-decision: ${{ steps.derive.outputs.decision }}
       review-summary: ${{ steps.derive.outputs.summary }}
     steps:
-      - name: Resolve Shipwright repository
-        id: shipwright
-        shell: bash
-        run: |
-          set -euo pipefail
-          ref="${{ github.workflow_ref }}"
-          path="${ref%%@*}"
-          repo="${path%/.github/workflows/*}"
-          echo "repo=${repo}" >> "$GITHUB_OUTPUT"
-
       - name: Checkout PR head
         uses: actions/checkout@v4
         with:
@@ -190,9 +169,8 @@ jobs:
       - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.shipwright.outputs.repo }}
+          repository: CaptShanks/shipwright
           path: .shipwright
-          token: ${{ github.token }}
 
       - name: Resolve project context path
         id: project_ctx
@@ -347,22 +325,11 @@ jobs:
     needs: [security-review, code-review]
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve Shipwright repository
-        id: shipwright
-        shell: bash
-        run: |
-          set -euo pipefail
-          ref="${{ github.workflow_ref }}"
-          path="${ref%%@*}"
-          repo="${path%/.github/workflows/*}"
-          echo "repo=${repo}" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout Shipwright (actions only)
+      - name: Checkout Shipwright
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.shipwright.outputs.repo }}
+          repository: CaptShanks/shipwright
           path: .shipwright
-          token: ${{ github.token }}
 
       - name: Build aggregate summary
         id: aggregate
