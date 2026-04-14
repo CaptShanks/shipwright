@@ -1,9 +1,8 @@
 name: Run AI agent
 description: >
-  Run an Shipwright agent prompt against a supported AI provider (Codex, Claude). Loads the
-  role-specific agent definition from this repository, optionally merges project context, and
-  invokes the provider with a unified prompt. Pass API credentials via the AI_API_KEY environment
-  variable from the calling workflow.
+  Run a Shipwright agent prompt against a supported AI provider (Codex, Claude Code, GitHub Models).
+  Loads the role-specific agent definition from this repository, optionally merges project context,
+  and invokes the provider with a unified prompt.
 
 inputs:
   ai-provider:
@@ -11,9 +10,9 @@ inputs:
     required: false
     default: 'codex'
   model:
-    description: 'Model name for github-models provider (e.g. gpt-4o-mini, gpt-4o, gpt-4.1).'
+    description: 'Model name (e.g. gpt-4o-mini for github-models, claude-sonnet-4-20250514 for claude).'
     required: false
-    default: 'gpt-4o-mini'
+    default: ''
   agent-role:
     description: >
       Which agent definition to load. One of: triage, architect, implementer, test-engineer,
@@ -29,7 +28,7 @@ inputs:
     default: ''
   project-context-path:
     description: >
-      Optional path to a project knowledge file (e.g. .github/shipwright/project-context.md),
+      Optional path to a project knowledge file (e.g. CLAUDE.md or .github/shipwright/project-context.md),
       relative to the repository root. When empty, no project context is injected.
     required: false
     default: ''
@@ -39,8 +38,7 @@ inputs:
     default: '.'
   max-tokens:
     description: >
-      Target maximum tokens for the model response. Included in the composed prompt as run
-      guidance for the agent (Codex CLI does not expose a dedicated max-output-token flag).
+      Target maximum tokens for the model response. Used for Codex/GitHub Models providers.
     required: false
     default: '16384'
   timeout-minutes:
@@ -48,10 +46,38 @@ inputs:
     required: false
     default: '30'
 
+  # Claude-specific inputs
+  claude-code-oauth-token:
+    description: 'OAuth token from Claude Code GitHub App (required when ai-provider is claude).'
+    required: false
+    default: ''
+  max-turns:
+    description: 'Max Claude Code turns (claude provider only).'
+    required: false
+    default: '15'
+  allowed-tools:
+    description: >
+      Comma-separated list of allowed tools for Claude Code (claude provider only).
+      If empty, a sensible default is chosen based on agent-role.
+    required: false
+    default: ''
+  allowed-bots:
+    description: 'Bot logins permitted to trigger the action (claude provider only).'
+    required: false
+    default: 'claude[bot]'
+  use-sticky-comment:
+    description: 'Whether to use sticky (updateable) comments (claude provider only).'
+    required: false
+    default: 'true'
+  trigger-phrase:
+    description: 'Trigger phrase for claude-code-action. Set to "none-disabled" for prompt-driven workflows.'
+    required: false
+    default: 'none-disabled'
+
 outputs:
   result:
     description: Primary text output from the AI agent.
-    value: ${{ steps.run_codex.outputs['final-message'] || steps.run_github_models.outputs.result || steps.run_claude.outputs.result }}
+    value: ${{ steps.run_codex.outputs['final-message'] || steps.run_github_models.outputs.result || '' }}
   exit-code:
     description: Exit code for a successful run (0). Unset if a prior step failed.
     value: ${{ steps.record_exit.outputs.code }}
@@ -59,13 +85,15 @@ outputs:
 runs:
   using: composite
   steps:
+    # ── Validation ──
     - name: Validate inputs
       shell: bash
       env:
-        AI_PROVIDER: ${{ inputs['ai-provider'] }}
-        AGENT_ROLE: ${{ inputs['agent-role'] }}
-        AGENT_PROMPT: ${{ inputs['agent-prompt'] }}
-        AGENT_PROMPT_FILE: ${{ inputs['agent-prompt-file'] }}
+        AI_PROVIDER: ${{ inputs.ai-provider }}
+        AGENT_ROLE: ${{ inputs.agent-role }}
+        AGENT_PROMPT: ${{ inputs.agent-prompt }}
+        AGENT_PROMPT_FILE: ${{ inputs.agent-prompt-file }}
+        CLAUDE_TOKEN: ${{ inputs.claude-code-oauth-token }}
       run: |
         set -euo pipefail
 
@@ -86,6 +114,11 @@ runs:
             ;;
         esac
 
+        if [ "$AI_PROVIDER" = "claude" ] && [ -z "$CLAUDE_TOKEN" ]; then
+          echo "claude-code-oauth-token is required when ai-provider is claude" >&2
+          exit 1
+        fi
+
         case "$AGENT_ROLE" in
           triage|architect|implementer|test-engineer|security-reviewer|pr-reviewer) ;;
           *)
@@ -94,10 +127,11 @@ runs:
             ;;
         esac
 
+    # ── Load context layers ──
     - name: Load project context
       shell: bash
       env:
-        CONTEXT_PATH: ${{ inputs['project-context-path'] }}
+        CONTEXT_PATH: ${{ inputs.project-context-path }}
       run: |
         set -euo pipefail
 
@@ -122,7 +156,7 @@ runs:
     - name: Load agent definition
       shell: bash
       env:
-        AGENT_ROLE: ${{ inputs['agent-role'] }}
+        AGENT_ROLE: ${{ inputs.agent-role }}
       run: |
         set -euo pipefail
 
@@ -163,14 +197,15 @@ runs:
           echo '__SHIPWRIGHT_AGENT_EOF__'
         } >> "$GITHUB_ENV"
 
+    # ── Construct prompt (used by Codex and GitHub Models) ──
     - name: Construct full prompt
       shell: bash
       env:
-        USER_PROMPT: ${{ inputs['agent-prompt'] }}
-        USER_PROMPT_FILE: ${{ inputs['agent-prompt-file'] }}
-        MAX_TOKENS: ${{ inputs['max-tokens'] }}
-        TIMEOUT_MINUTES: ${{ inputs['timeout-minutes'] }}
-        AI_PROVIDER: ${{ inputs['ai-provider'] }}
+        USER_PROMPT: ${{ inputs.agent-prompt }}
+        USER_PROMPT_FILE: ${{ inputs.agent-prompt-file }}
+        MAX_TOKENS: ${{ inputs.max-tokens }}
+        TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
+        AI_PROVIDER: ${{ inputs.ai-provider }}
       run: |
         set -euo pipefail
 
@@ -205,25 +240,34 @@ runs:
 
         echo "PROMPT_FILE=${PROMPT_FILE}" >> "$GITHUB_ENV"
 
+        # Also store the user prompt separately for Claude's prompt input
+        {
+          echo 'SHIPWRIGHT_USER_PROMPT<<__SHIPWRIGHT_UP_EOF__'
+          printf '%s\n' "$user_prompt"
+          echo '__SHIPWRIGHT_UP_EOF__'
+        } >> "$GITHUB_ENV"
+
+    # ── Provider: Codex ──
     - name: Run Codex
       id: run_codex
-      if: ${{ inputs['ai-provider'] == 'codex' }}
+      if: ${{ inputs.ai-provider == 'codex' }}
       uses: openai/codex-action@v1
       env:
         OPENAI_API_KEY: ${{ env.AI_API_KEY }}
       with:
         prompt-file: ${{ env.PROMPT_FILE }}
         openai-api-key: ${{ env.AI_API_KEY }}
-        working-directory: ${{ github.workspace }}/${{ inputs['working-directory'] }}
-        sandbox: ${{ (inputs['agent-role'] == 'implementer' || inputs['agent-role'] == 'test-engineer') && 'workspace-write' || 'read-only' }}
+        working-directory: ${{ github.workspace }}/${{ inputs.working-directory }}
+        sandbox: ${{ (inputs.agent-role == 'implementer' || inputs.agent-role == 'test-engineer') && 'workspace-write' || 'read-only' }}
 
+    # ── Provider: GitHub Models ──
     - name: Run GitHub Models
       id: run_github_models
-      if: ${{ inputs['ai-provider'] == 'github-models' }}
+      if: ${{ inputs.ai-provider == 'github-models' }}
       shell: bash
       env:
         GITHUB_TOKEN: ${{ env.AI_API_KEY }}
-        MODEL: ${{ inputs['model'] }}
+        MODEL: ${{ inputs.model || 'gpt-4o-mini' }}
         PROMPT_FILE: ${{ env.PROMPT_FILE }}
       run: |
         set -euo pipefail
@@ -279,15 +323,66 @@ runs:
             out.write(f"{delim}\n")
         PY
 
-    - name: Run Claude
-      id: run_claude
-      if: ${{ inputs['ai-provider'] == 'claude' }}
+    # ── Provider: Claude Code ──
+    - name: Resolve Claude allowed tools
+      id: claude_tools
+      if: ${{ inputs.ai-provider == 'claude' }}
       shell: bash
+      env:
+        AGENT_ROLE: ${{ inputs.agent-role }}
+        CUSTOM_TOOLS: ${{ inputs.allowed-tools }}
       run: |
         set -euo pipefail
-        echo '::notice::Claude provider is available via claude-code-action. Use ai-provider: github-models for text analysis or claude-code-action directly for code implementation.'
-        echo 'result=' >> "$GITHUB_OUTPUT"
 
+        if [ -n "$CUSTOM_TOOLS" ]; then
+          echo "tools=$CUSTOM_TOOLS" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        BASE="Read,Write,Edit,MultiEdit,Glob,Grep,LS"
+        case "$AGENT_ROLE" in
+          triage)
+            echo "tools=Read,Glob,Grep,LS,Bash(gh issue:*),Bash(gh label:*)" >> "$GITHUB_OUTPUT"
+            ;;
+          architect)
+            echo "tools=${BASE},Bash(git:*),Bash(gh:*),Bash(mkdir:*),Bash(ls:*),Bash(cat:*),Bash(find:*)" >> "$GITHUB_OUTPUT"
+            ;;
+          implementer)
+            echo "tools=${BASE},Bash(git:*),Bash(go:*),Bash(goimports:*),Bash(gh:*),Bash(mkdir:*),Bash(ls:*),Bash(cat:*),Bash(find:*)" >> "$GITHUB_OUTPUT"
+            ;;
+          test-engineer)
+            echo "tools=${BASE},Bash(git:*),Bash(go:*),Bash(gh:*),Bash(mkdir:*),Bash(ls:*),Bash(cat:*),Bash(find:*)" >> "$GITHUB_OUTPUT"
+            ;;
+          security-reviewer|pr-reviewer)
+            echo "tools=Read,Glob,Grep,LS,Bash(gh:*),Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(go test:*),Bash(go vet:*)" >> "$GITHUB_OUTPUT"
+            ;;
+        esac
+
+    - name: Run Claude Code
+      id: run_claude
+      if: ${{ inputs.ai-provider == 'claude' }}
+      uses: anthropics/claude-code-action@v1
+      with:
+        claude_code_oauth_token: ${{ inputs.claude-code-oauth-token }}
+        trigger_phrase: ${{ inputs.trigger-phrase }}
+        allowed_bots: ${{ inputs.allowed-bots }}
+        use_sticky_comment: ${{ inputs.use-sticky-comment }}
+        claude_args: |
+          --model ${{ inputs.model || 'claude-sonnet-4-20250514' }}
+          --max-turns ${{ inputs.max-turns }}
+          --allowedTools "${{ steps.claude_tools.outputs.tools }}"
+        prompt: |
+          ${{ env.AGENT_DEFINITION }}
+
+          ---
+
+          ${{ env.PROJECT_CONTEXT }}
+
+          ---
+
+          ${{ env.SHIPWRIGHT_USER_PROMPT }}
+
+    # ── Finalize ──
     - name: Record success exit code
       id: record_exit
       if: ${{ success() }}
