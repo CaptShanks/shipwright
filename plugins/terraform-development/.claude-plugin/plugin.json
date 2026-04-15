@@ -1,0 +1,7 @@
+{
+  "name": "terraform-development",
+  "version": "1.0.0",
+  "description": "Terraform and HCL idioms, module architecture, state management, provider patterns, and security practices for production-grade infrastructure as code",
+  "agents": [],
+  "skills": ["skills/terraform-development"]
+}
