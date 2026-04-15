@@ -45,6 +45,13 @@ inputs:
     description: Step timeout (minutes) for provider execution.
     required: false
     default: '30'
+  additional-skills:
+    description: >
+      Comma-separated list of skill names to inject into the prompt (e.g. "go-development,terraform-development").
+      Each name is resolved to plugins/<name>/skills/<name>/SKILL.md within the shipwright repo.
+      Use this for language/framework-specific skills that are not bundled with the agent.
+    required: false
+    default: ''
 
   # Claude-specific inputs
   claude-code-oauth-token:
@@ -203,6 +210,45 @@ runs:
           echo '__SHIPWRIGHT_AGENT_EOF__'
         } >> "$GITHUB_ENV"
 
+    - name: Load additional skills
+      shell: bash
+      env:
+        SKILL_NAMES: ${{ inputs.additional-skills }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "$SKILL_NAMES" ]; then
+          echo "ADDITIONAL_SKILLS=" >> "$GITHUB_ENV"
+          exit 0
+        fi
+
+        skills_content=""
+        IFS=',' read -ra SKILLS <<< "$SKILL_NAMES"
+        for skill in "${SKILLS[@]}"; do
+          skill="$(echo "$skill" | xargs)"
+          [ -z "$skill" ] && continue
+
+          SKILL_FILE="$(cd "$GITHUB_ACTION_PATH" && cd "../../plugins/${skill}/skills/${skill}" && pwd)/SKILL.md"
+          if [ ! -f "$SKILL_FILE" ]; then
+            echo "::warning::Skill not found: ${skill} (expected at plugins/${skill}/skills/${skill}/SKILL.md)"
+            continue
+          fi
+
+          echo "Loading skill: ${skill}"
+          skills_content="${skills_content}
+
+---
+
+$(cat "$SKILL_FILE")"
+        done
+
+        {
+          echo 'ADDITIONAL_SKILLS<<__SHIPWRIGHT_SKILLS_EOF__'
+          printf '%s' "$skills_content"
+          echo
+          echo '__SHIPWRIGHT_SKILLS_EOF__'
+        } >> "$GITHUB_ENV"
+
     # ── Construct prompt (used by Codex and GitHub Models) ──
     - name: Construct full prompt
       shell: bash
@@ -229,11 +275,22 @@ runs:
           user_prompt="$USER_PROMPT"
         fi
 
+        skills_ctx="$ADDITIONAL_SKILLS"
+        if [ "$AI_PROVIDER" = "github-models" ]; then
+          skills_ctx="$(printf '%s' "$skills_ctx" | head -c 2000)"
+        fi
+
         PROMPT_FILE="${RUNNER_TEMP}/shipwright_full_prompt.txt"
         {
           echo '# Agent definition'
           echo
           printf '%s\n' "$agent_def"
+          if [ -n "$skills_ctx" ]; then
+            echo
+            echo '# Additional skills'
+            echo
+            printf '%s\n' "$skills_ctx"
+          fi
           echo
           echo '# Project context'
           echo
@@ -385,6 +442,8 @@ runs:
           --allowedTools "${{ steps.claude_tools.outputs.tools }}"
         prompt: |
           ${{ env.AGENT_DEFINITION }}
+
+          ${{ env.ADDITIONAL_SKILLS }}
 
           ---
 
