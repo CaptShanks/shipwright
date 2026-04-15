@@ -136,6 +136,16 @@ After wiring a skill:
 2. Confirm `plugin.json` includes `"skills/<skill-name>"` and the agent's frontmatter lists the same logical `name` as in `SKILL.md`.
 3. Open `SKILL.md` and one checklist in the client you use for agents to ensure paths and formatting render as expected.
 
+## Per-project skill activation
+
+Standalone skills (like `go-development` or `terraform-development`) are not hardwired to any agent. They can be activated per-project so agents gain language- or framework-specific knowledge only when relevant.
+
+**CI/CD:** Use the `additional-skills` input on `run-ai-agent` to inject skill content into any agent's prompt at runtime. See the [getting started guide](./getting-started.md) for usage examples.
+
+**Local:** Install the skill plugin, then add the skill name to the agent's `skills:` array in its `.md` frontmatter. Claude Code's progressive disclosure engine surfaces the content when relevant.
+
+This separation keeps agents reusable across stacks while allowing deep, project-specific knowledge when needed.
+
 ## Tips
 
 - **Start with checklists** -- they give the fastest payoff for agent behavior and human review.

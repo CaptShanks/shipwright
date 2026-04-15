@@ -213,6 +213,41 @@ jobs:
 
 Use `concurrency` in **caller** workflows (as in the examples) so duplicate events for the same issue or PR do not stack expensive runs. Choose `cancel-in-progress: true` when only the latest state matters (triage, PR review); use `false` for long implement runs if you prefer not to abort mid-flight.
 
+### Activating language/framework skills
+
+Shipwright agents are language-agnostic by design. Language-specific knowledge (Go idioms, Terraform patterns, etc.) lives in standalone skills that you activate per-project.
+
+**In CI/CD workflows** — pass skill names via the `additional-skills` input on the `run-ai-agent` composite action:
+
+```yaml
+- uses: CaptShanks/shipwright/actions/run-ai-agent@main
+  with:
+    agent-role: implementer
+    additional-skills: "go-development"
+    # ...
+```
+
+Multiple skills are comma-separated: `additional-skills: "go-development,terraform-development"`. Each name resolves to `plugins/<name>/skills/<name>/SKILL.md` in the Shipwright repository. The skill content is injected between the agent definition and the project context in the prompt.
+
+**In local Claude Code** — install the skill plugin, then add it to the agent's frontmatter:
+
+```text
+# Install the skill
+/plugin install go-skills@shipwright
+```
+
+Then edit the agent's `.md` file (inside your installed plugin directory) and add the skill name to the `skills:` array:
+
+```yaml
+skills:
+  - security-awareness
+  - scalability-resilience
+  - code-quality-fundamentals
+  - go-development          # added by you
+```
+
+Claude Code's progressive disclosure engine will surface the skill content when relevant to the conversation.
+
 ### Customizing agent behavior
 
 Edit `.github/shipwright/project-context.md` to describe:
