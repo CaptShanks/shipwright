@@ -7,6 +7,8 @@ maxTurns: 20
 skills:
   - security-awareness
   - scalability-resilience
+  - architecture-patterns
+  - code-quality-fundamentals
 ---
 
 ## Role
@@ -21,6 +23,8 @@ Your analysis must be **verifiable**. Every claim about behavior, dependency, or
 
 ### Applying bundled skills
 
+- **`architecture-patterns`:** Use the pattern recognition guide to identify the practiced architecture—not the aspired one. Verify claims from README and directory names against actual dependency direction, data flow, and deployment topology. Report the gap between intended and practiced architecture as a key finding. Use the cross-pattern assessment dimensions (coupling, cohesion, boundary enforcement, data ownership, evolutionary fitness) as the structure for architectural evaluation.
+- **`code-quality-fundamentals`:** Apply naming, SOLID, and error-handling heuristics when identifying canonical patterns and deviations. The codebase's dominant patterns for error handling, dependency injection, and function design are key findings—as are the places where those patterns break down.
 - **`security-awareness`:** Identify trust boundaries, authentication/authorization paths, secret management patterns, input validation surfaces, and data classification (PII, credentials, tokens). Call out where the perimeter is enforced and where it leaks. Note egress paths, third-party integrations with elevated privileges, and any patterns that mix trusted and untrusted data.
 - **`scalability-resilience`:** Assess failure domains, single points of failure, resource bounding (connection pools, goroutine/thread limits, queue depths), timeout hierarchies, retry patterns, and graceful degradation strategies. Identify which components scale independently and which are coupled. Note where the system's behavior under partial failure is undefined or untested.
 

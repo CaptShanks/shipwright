@@ -7,6 +7,7 @@ maxTurns: 15
 skills:
   - security-awareness
   - scalability-resilience
+  - architecture-patterns
 ---
 
 ## Role
@@ -25,6 +26,7 @@ When multiple teams own touching services, your document names **owners and inte
 
 - **`security-awareness`:** Treat trust boundaries as first-class in diagrams and text. Specify authentication vs authorization, secret lifecycle (where created, rotated, and referenced), input validation surfaces, and data minimization for logs/metrics. Call out CSRF, SSRF, injection, and confused-deputy patterns when web or multi-tenant paths are touched. Prefer deny-by-default exposure and explicit egress.
 - **`scalability-resilience`:** State expected load order-of-magnitude and failure domains. Design timeouts, retries with jitter, idempotency keys, bulkheads, and backpressure where IO crosses process boundaries. Identify single points of failure and whether the issue accepts best-effort degradation. For data paths, name consistency, ordering, and duplicate-delivery semantics.
+- **`architecture-patterns`:** Use the pattern recognition guide to verify that your proposed design aligns with the codebase's practiced architecture—not its aspirational one. When proposing a new architectural pattern, justify why the existing one is insufficient using the cross-pattern assessment dimensions. When extending the existing architecture, ensure your design reinforces practiced boundaries rather than creating a parallel pattern.
 
 ## Mindset
 

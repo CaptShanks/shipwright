@@ -1,0 +1,7 @@
+{
+  "name": "architecture-patterns",
+  "version": "1.0.0",
+  "description": "Identify architectural styles from code evidence, distinguish practiced vs aspirational architecture, and recognize failure modes",
+  "agents": [],
+  "skills": ["skills/architecture-patterns"]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "semantic-versioning",
+  "version": "1.0.0",
+  "description": "Breaking change detection, semver decision rules, pre-release semantics, and version bump classification across contract types",
+  "agents": [],
+  "skills": ["skills/semantic-versioning"]
+}

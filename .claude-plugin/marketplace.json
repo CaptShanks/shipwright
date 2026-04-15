@@ -136,6 +136,24 @@
       "keywords": ["code-review", "feedback", "severity", "methodology", "pull-request"]
     },
     {
+      "name": "semantic-versioning",
+      "source": "./plugins/semantic-versioning",
+      "description": "Breaking change detection, semver decision rules, pre-release semantics, and version bump classification across contract types",
+      "version": "1.0.0",
+      "category": "skills",
+      "tags": ["semver", "versioning", "release"],
+      "keywords": ["semantic-versioning", "semver", "breaking-changes", "version-bump", "release"]
+    },
+    {
+      "name": "architecture-patterns",
+      "source": "./plugins/architecture-patterns",
+      "description": "Identify architectural styles from code evidence, distinguish practiced vs aspirational architecture, and recognize failure modes",
+      "version": "1.0.0",
+      "category": "skills",
+      "tags": ["architecture", "patterns", "analysis"],
+      "keywords": ["architecture", "patterns", "layered", "hexagonal", "microservices", "modular-monolith"]
+    },
+    {
       "name": "go-skills",
       "source": "./plugins/go-skills",
       "description": "Go development idioms, patterns, and conventions",
@@ -183,7 +201,7 @@
     {
       "name": "shipwright-full",
       "source": "./plugins/shipwright-full",
-      "description": "All 8 agents + all 7 skills + all 4 MCPs in one install",
+      "description": "All 8 agents + all 9 skills + all 4 MCPs in one install",
       "version": "1.0.0",
       "category": "bundles",
       "tags": ["full", "bundle", "all"],

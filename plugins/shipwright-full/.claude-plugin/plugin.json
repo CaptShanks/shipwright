@@ -1,7 +1,7 @@
 {
   "name": "shipwright-full",
   "version": "1.0.0",
-  "description": "Complete bundle: all 8 agents and all 7 skills",
+  "description": "Complete bundle: all 8 agents and all 9 skills",
   "agents": [
     "agents/triage.md",
     "agents/architect.md",
@@ -19,6 +19,8 @@
     "skills/security-owasp",
     "skills/test-patterns",
     "skills/code-review-standards",
-    "skills/go-development"
+    "skills/go-development",
+    "skills/semantic-versioning",
+    "skills/architecture-patterns"
   ]
 }

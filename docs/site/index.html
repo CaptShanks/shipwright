@@ -557,7 +557,7 @@ const PLUGINS = [
     version: "1.0.0",
     category: "agents",
     tags: ["changelog", "release", "versioning"],
-    skills: []
+    skills: ["semantic-versioning"]
   },
   {
     name: "codebase-analyzer",
@@ -565,7 +565,7 @@ const PLUGINS = [
     version: "1.0.0",
     category: "agents",
     tags: ["analysis", "onboarding", "architecture"],
-    skills: ["security-awareness", "scalability-resilience"]
+    skills: ["security-awareness", "scalability-resilience", "architecture-patterns", "code-quality-fundamentals"]
   },
   {
     name: "security-awareness",
@@ -622,6 +622,22 @@ const PLUGINS = [
     category: "skills",
     tags: ["go", "golang"],
     skills: ["go-development"]
+  },
+  {
+    name: "semantic-versioning",
+    description: "Breaking change detection heuristics, semver decision rules, pre-release semantics, and version bump classification across contract types (API, CLI, config, schema, library).",
+    version: "1.0.0",
+    category: "skills",
+    tags: ["semver", "versioning", "release"],
+    skills: ["semantic-versioning"]
+  },
+  {
+    name: "architecture-patterns",
+    description: "Identify architectural styles from code evidence — layered, hexagonal, microservices, event-driven, modular monolith — with detection heuristics and failure mode recognition.",
+    version: "1.0.0",
+    category: "skills",
+    tags: ["architecture", "patterns", "analysis"],
+    skills: ["architecture-patterns"]
   },
   {
     name: "context7",
