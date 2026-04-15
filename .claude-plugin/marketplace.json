@@ -64,6 +64,24 @@
       "keywords": ["review", "code-quality", "pr", "pull-request"]
     },
     {
+      "name": "changelog-generator",
+      "source": "./plugins/changelog-generator",
+      "description": "Produces audience-aware, semantically versioned changelogs by analyzing git history, diffs, PRs, and issues",
+      "version": "1.0.0",
+      "category": "agents",
+      "tags": ["changelog", "release", "versioning"],
+      "keywords": ["changelog", "release-notes", "semver", "versioning", "git-history"]
+    },
+    {
+      "name": "codebase-analyzer",
+      "source": "./plugins/codebase-analyzer",
+      "description": "Produces structured codebase analyses by tracing runtime paths, architectural boundaries, and dependency graphs",
+      "version": "1.0.0",
+      "category": "agents",
+      "tags": ["analysis", "onboarding", "architecture"],
+      "keywords": ["codebase-analysis", "onboarding", "architecture", "dependency-graph", "technical-debt"]
+    },
+    {
       "name": "security-awareness",
       "source": "./plugins/security-awareness",
       "description": "Input validation, secret handling, least privilege, and defensive coding fundamentals",
@@ -165,7 +183,7 @@
     {
       "name": "shipwright-full",
       "source": "./plugins/shipwright-full",
-      "description": "All 6 agents + all 7 skills + all 4 MCPs in one install",
+      "description": "All 8 agents + all 7 skills + all 4 MCPs in one install",
       "version": "1.0.0",
       "category": "bundles",
       "tags": ["full", "bundle", "all"],

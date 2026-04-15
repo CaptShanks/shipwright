@@ -1,0 +1,7 @@
+{
+  "name": "codebase-analyzer",
+  "version": "1.0.0",
+  "description": "Produces accurate, structured codebase analyses by tracing runtime paths, architectural boundaries, dependency graphs, and operational characteristics",
+  "agents": ["agents/codebase-analyzer.md"],
+  "skills": []
+}

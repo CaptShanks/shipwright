@@ -1,14 +1,16 @@
 {
   "name": "shipwright-full",
   "version": "1.0.0",
-  "description": "Complete bundle: all 6 agents and all 7 skills",
+  "description": "Complete bundle: all 8 agents and all 7 skills",
   "agents": [
     "agents/triage.md",
     "agents/architect.md",
     "agents/implementer.md",
     "agents/test-engineer.md",
     "agents/security-reviewer.md",
-    "agents/pr-reviewer.md"
+    "agents/pr-reviewer.md",
+    "agents/changelog-generator.md",
+    "agents/codebase-analyzer.md"
   ],
   "skills": [
     "skills/security-awareness",

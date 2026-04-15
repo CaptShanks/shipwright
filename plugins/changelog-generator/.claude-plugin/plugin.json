@@ -1,0 +1,7 @@
+{
+  "name": "changelog-generator",
+  "version": "1.0.0",
+  "description": "Produces audience-aware, semantically versioned changelogs by analyzing git history, diffs, PRs, and issues—classifying changes by user impact rather than file churn",
+  "agents": ["agents/changelog-generator.md"],
+  "skills": []
+}

@@ -16,7 +16,7 @@ inputs:
   agent-role:
     description: >
       Which agent definition to load. One of: triage, architect, implementer, test-engineer,
-      security-reviewer, pr-reviewer.
+      security-reviewer, pr-reviewer, changelog-generator, codebase-analyzer.
     required: true
   agent-prompt:
     description: Full user/task prompt for the agent (ignored if agent-prompt-file is set).
@@ -120,7 +120,7 @@ runs:
         fi
 
         case "$AGENT_ROLE" in
-          triage|architect|implementer|test-engineer|security-reviewer|pr-reviewer) ;;
+          triage|architect|implementer|test-engineer|security-reviewer|pr-reviewer|changelog-generator|codebase-analyzer) ;;
           *)
             echo "Invalid agent-role: $AGENT_ROLE" >&2
             exit 1
@@ -178,6 +178,12 @@ runs:
             ;;
           pr-reviewer)
             rel='../../plugins/pr-reviewer/agents/pr-reviewer.md'
+            ;;
+          changelog-generator)
+            rel='../../plugins/changelog-generator/agents/changelog-generator.md'
+            ;;
+          codebase-analyzer)
+            rel='../../plugins/codebase-analyzer/agents/codebase-analyzer.md'
             ;;
           *)
             echo "Unhandled agent-role: $AGENT_ROLE" >&2
@@ -355,6 +361,12 @@ runs:
             ;;
           security-reviewer|pr-reviewer)
             echo "tools=Read,Glob,Grep,LS,Bash(gh:*),Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(go test:*),Bash(go vet:*)" >> "$GITHUB_OUTPUT"
+            ;;
+          changelog-generator)
+            echo "tools=Read,Glob,Grep,LS,Bash(git:*),Bash(gh:*),Bash(cat:*),Bash(ls:*),Bash(find:*)" >> "$GITHUB_OUTPUT"
+            ;;
+          codebase-analyzer)
+            echo "tools=Read,Glob,Grep,LS,Bash(ls:*),Bash(cat:*),Bash(find:*),Bash(wc:*),Bash(head:*)" >> "$GITHUB_OUTPUT"
             ;;
         esac
 
