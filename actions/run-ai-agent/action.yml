@@ -235,11 +235,7 @@ runs:
           fi
 
           echo "Loading skill: ${skill}"
-          skills_content="${skills_content}
-
----
-
-$(cat "$SKILL_FILE")"
+          skills_content="${skills_content}$(printf '\n\n---\n\n')$(cat "$SKILL_FILE")"
         done
 
         {
