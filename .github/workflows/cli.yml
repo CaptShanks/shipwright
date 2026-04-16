@@ -1,0 +1,35 @@
+name: CLI
+
+on:
+  push:
+    branches: [main]
+    paths: ['cli/**']
+  pull_request:
+    branches: [main]
+    paths: ['cli/**']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test CLI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+
+      - name: Build
+        run: go build -ldflags "-s -w -X main.version=ci-${{ github.sha }}" ./cmd/ship
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...

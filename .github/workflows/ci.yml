@@ -1,4 +1,4 @@
-name: CI
+name: Validate & Lint
 
 on:
   push:
@@ -39,28 +39,6 @@ jobs:
 
       - name: Validate action definitions
         run: python3 scripts/ci_validate.py actions
-
-  cli:
-    name: Build and test CLI
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: cli
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: cli/go.mod
-
-      - name: Build
-        run: go build -ldflags "-s -w -X main.version=ci-${{ github.sha }}" ./cmd/ship
-
-      - name: Vet
-        run: go vet ./...
-
-      - name: Test
-        run: go test ./...
 
   yaml-lint:
     name: YAML lint
