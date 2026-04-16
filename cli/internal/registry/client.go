@@ -70,7 +70,7 @@ func (c *Client) FetchMarketplace() (*Marketplace, error) {
 
 // FetchPluginManifest returns a plugin's plugin.json from the repo.
 func (c *Client) FetchPluginManifest(pluginSource string) (*PluginManifest, error) {
-	path := fmt.Sprintf("plugins/%s/.claude-plugin/plugin.json", pluginSource)
+	path := fmt.Sprintf("%s/.claude-plugin/plugin.json", normalizeSource(pluginSource))
 	raw, err := c.fetchRawFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("fetching plugin manifest for %s: %w", pluginSource, err)
@@ -83,19 +83,33 @@ func (c *Client) FetchPluginManifest(pluginSource string) (*PluginManifest, erro
 	return &pm, nil
 }
 
-// FetchMcpManifest returns an MCP's mcp.json from _mcps/<name>/.
-func (c *Client) FetchMcpManifest(mcpName string) (*McpManifest, error) {
-	path := fmt.Sprintf("_mcps/%s/mcp.json", mcpName)
+// FetchMcpManifest returns an MCP server config from a plugin's .mcp.json.
+// The source should be the marketplace source path (e.g. "./plugins/context7").
+func (c *Client) FetchMcpManifest(pluginSource string) (*McpManifest, error) {
+	path := fmt.Sprintf("%s/.mcp.json", normalizeSource(pluginSource))
 	raw, err := c.fetchRawFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("fetching MCP manifest for %s: %w", mcpName, err)
+		return nil, fmt.Errorf("fetching MCP manifest for %s: %w", pluginSource, err)
 	}
 
-	var m McpManifest
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return nil, fmt.Errorf("parsing mcp.json for %s: %w", mcpName, err)
+	var servers map[string]struct {
+		Command string            `json:"command"`
+		Args    []string          `json:"args"`
+		Env     map[string]string `json:"env"`
 	}
-	return &m, nil
+	if err := json.Unmarshal(raw, &servers); err != nil {
+		return nil, fmt.Errorf("parsing .mcp.json for %s: %w", pluginSource, err)
+	}
+
+	for name, srv := range servers {
+		return &McpManifest{
+			Name:    name,
+			Command: srv.Command,
+			Args:    srv.Args,
+			Env:     srv.Env,
+		}, nil
+	}
+	return nil, fmt.Errorf("no server entries in .mcp.json for %s", pluginSource)
 }
 
 // FetchFileContent downloads a single file's raw content by repo path.
@@ -210,6 +224,16 @@ func (c *Client) download(url string) ([]byte, error) {
 		return nil, fmt.Errorf("download returned %d for %s", resp.StatusCode, url)
 	}
 	return io.ReadAll(resp.Body)
+}
+
+// NormalizeSource strips a leading "./" from a marketplace source path so it
+// can be used directly as a repo-relative path.
+func NormalizeSource(source string) string {
+	return normalizeSource(source)
+}
+
+func normalizeSource(source string) string {
+	return strings.TrimPrefix(source, "./")
 }
 
 func (c *Client) loadCachedMarketplace() (*Marketplace, error) {

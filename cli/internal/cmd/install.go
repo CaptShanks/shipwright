@@ -82,7 +82,7 @@ func runInstall(cmd *cobra.Command, args []string) error {
 	// Download all agent and skill content from the repo
 	agentContents := make(map[string][]byte)
 	for _, agentPath := range manifest.Agents {
-		repoPath := fmt.Sprintf("plugins/%s/%s", item.Source, agentPath)
+		repoPath := fmt.Sprintf("%s/%s", registry.NormalizeSource(item.Source), agentPath)
 		content, err := client.FetchFileContent(repoPath)
 		if err != nil {
 			return fmt.Errorf("downloading agent %s: %w", agentPath, err)

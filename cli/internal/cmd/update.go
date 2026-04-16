@@ -112,7 +112,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 			var allFiles []string
 
 			for _, agentPath := range manifest.Agents {
-				repoPath := fmt.Sprintf("plugins/%s/%s", item.Source, agentPath)
+				repoPath := fmt.Sprintf("%s/%s", registry.NormalizeSource(item.Source), agentPath)
 				content, err := client.FetchFileContent(repoPath)
 				if err != nil {
 					ui.Error("%s/%s: agent download failed: %v", inst.Plugin, toolInst.Name(), err)
