@@ -49,65 +49,15 @@ jobs:
           name: ship-${{ matrix.os }}-${{ matrix.arch }}
           path: cli/ship-*
 
-  changelog:
-    name: Generate changelog
+  release:
+    name: Create GitHub Release
+    needs: [build]
     runs-on: ubuntu-latest
-    outputs:
-      changelog: ${{ steps.changelog.outputs.result }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Determine commit range
-        id: range
-        run: |
-          CURRENT_TAG="${GITHUB_REF_NAME}"
-          PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${CURRENT_TAG}$" | head -1 || true)
-          if [ -z "$PREV_TAG" ]; then
-            RANGE="$(git rev-list --max-parents=0 HEAD)..HEAD"
-            echo "range=${RANGE}" >> "$GITHUB_OUTPUT"
-            echo "desc=all commits up to ${CURRENT_TAG}" >> "$GITHUB_OUTPUT"
-          else
-            RANGE="${PREV_TAG}..${CURRENT_TAG}"
-            echo "range=${RANGE}" >> "$GITHUB_OUTPUT"
-            echo "desc=${PREV_TAG} to ${CURRENT_TAG}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Collect git history
-        id: history
-        run: |
-          {
-            echo 'GIT_LOG<<__EOF__'
-            git log ${{ steps.range.outputs.range }} \
-              --format='%h %s (%an, %as)' -- cli/
-            echo '__EOF__'
-          } >> "$GITHUB_ENV"
-
-      - name: Generate changelog with AI agent
-        id: changelog
-        uses: ./actions/run-ai-agent
-        with:
-          ai-provider: codex
-          agent-role: changelog-generator
-          agent-prompt: |
-            Generate a changelog for the Ship CLI release ${{ github.ref_name }}.
-            Commit range: ${{ steps.range.outputs.desc }}
-
-            Focus only on changes under the cli/ directory.
-            Format for a GitHub Release (markdown).
-            Keep it concise — this is a CLI tool, not a library.
-
-            Git log:
-            ${{ env.GIT_LOG }}
-        env:
-          AI_API_KEY: ${{ secrets.AI_API_KEY }}
-
-  release:
-    name: Create GitHub Release
-    needs: [build, changelog]
-    runs-on: ubuntu-latest
-    steps:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -117,27 +67,48 @@ jobs:
         working-directory: artifacts
         run: sha256sum ship-* > checksums.txt
 
-      - name: Write release body
+      - name: Build release notes
+        id: notes
         run: |
-          cat > release-body.md << 'HEADER'
-          ## Install
+          set -euo pipefail
 
-          **Via Go:**
-          ```bash
-          go install github.com/CaptShanks/shipwright/cli/cmd/ship@${{ github.ref_name }}
-          ```
+          CURRENT_TAG="${GITHUB_REF_NAME}"
+          PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${CURRENT_TAG}$" | head -1 || true)
 
-          **Via binary:** download the appropriate archive below, extract, and place `ship` in your PATH.
-
-          ---
-
-          HEADER
-
-          CHANGELOG='${{ needs.changelog.outputs.changelog }}'
-          if [ -n "$CHANGELOG" ]; then
-            echo "$CHANGELOG" >> release-body.md
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="$(git rev-list --max-parents=0 HEAD)..HEAD"
+            RANGE_DESC="Initial release"
           else
-            echo "See [commit history](https://github.com/CaptShanks/shipwright/compare/...${GITHUB_REF_NAME}) for changes." >> release-body.md
+            RANGE="${PREV_TAG}..${CURRENT_TAG}"
+            RANGE_DESC="Changes since ${PREV_TAG}"
+          fi
+
+          CLI_COMMITS=$(git log "$RANGE" --format='- %s (%h)' -- cli/ || true)
+          OTHER_COMMITS=$(git log "$RANGE" --format='- %s (%h)' -- ':!cli/' || true)
+
+          {
+            echo '## Install'
+            echo
+            echo '**Via Go:**'
+            echo '```bash'
+            echo 'go install github.com/CaptShanks/shipwright/cli/cmd/ship@latest'
+            echo '```'
+            echo
+            echo '**Via binary:** download the appropriate archive below, extract, and place `ship` in your PATH.'
+          } > release-body.md
+
+          printf '\n## %s\n\n' "$RANGE_DESC" >> release-body.md
+
+          if [ -n "$CLI_COMMITS" ]; then
+            printf '### CLI\n\n%s\n' "$CLI_COMMITS" >> release-body.md
+          fi
+
+          if [ -n "$OTHER_COMMITS" ]; then
+            printf '\n### Other\n\n%s\n' "$OTHER_COMMITS" >> release-body.md
+          fi
+
+          if [ -z "$CLI_COMMITS" ] && [ -z "$OTHER_COMMITS" ]; then
+            echo "No changes in this release." >> release-body.md
           fi
 
       - uses: softprops/action-gh-release@v2
