@@ -12,9 +12,9 @@ func (c *CursorInstaller) Name() string    { return "cursor" }
 
 func (c *CursorInstaller) AgentDir(scope Scope) string {
 	if scope == ScopeGlobal {
-		return filepath.Join(homeDir(), ".cursor", "rules")
+		return filepath.Join(homeDir(), ".cursor", "agents")
 	}
-	return filepath.Join(ProjectRoot(), ".cursor", "rules")
+	return filepath.Join(ProjectRoot(), ".cursor", "agents")
 }
 
 func (c *CursorInstaller) SkillDir(scope Scope, skillName string) string {

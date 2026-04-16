@@ -9,9 +9,9 @@ func (c *ClaudeInstaller) Name() string    { return "claude" }
 
 func (c *ClaudeInstaller) AgentDir(scope Scope) string {
 	if scope == ScopeGlobal {
-		return filepath.Join(homeDir(), ".claude", "commands")
+		return filepath.Join(homeDir(), ".claude", "agents")
 	}
-	return filepath.Join(ProjectRoot(), ".claude", "commands")
+	return filepath.Join(ProjectRoot(), ".claude", "agents")
 }
 
 func (c *ClaudeInstaller) SkillDir(scope Scope, skillName string) string {
