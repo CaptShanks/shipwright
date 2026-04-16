@@ -1,1 +1,1 @@
-../../triage-agent/agents/triage.md
+../../../_agents/triage.md

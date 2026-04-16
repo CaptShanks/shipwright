@@ -1,1 +1,1 @@
-../../codebase-analyzer/agents/codebase-analyzer.md
+../../../_agents/codebase-analyzer.md

@@ -1,1 +1,1 @@
-../../changelog-generator/agents/changelog-generator.md
+../../../_agents/changelog-generator.md

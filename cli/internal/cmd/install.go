@@ -79,22 +79,22 @@ func runInstall(cmd *cobra.Command, args []string) error {
 		ui.Dim("Skills: %s", strings.Join(skillNames, ", "))
 	}
 
-	// Download all agent and skill content from the repo
+	// Download all agent and skill content from canonical _agents/ and _skills/ directories
 	agentContents := make(map[string][]byte)
 	for _, agentPath := range manifest.Agents {
-		repoPath := fmt.Sprintf("%s/%s", registry.NormalizeSource(item.Source), agentPath)
+		agentFile := filepath.Base(agentPath)
+		repoPath := "_agents/" + agentFile
 		content, err := client.FetchFileContent(repoPath)
 		if err != nil {
-			return fmt.Errorf("downloading agent %s: %w", agentPath, err)
+			return fmt.Errorf("downloading agent %s: %w", agentFile, err)
 		}
-		name := strings.TrimSuffix(filepath.Base(agentPath), ".md")
+		name := strings.TrimSuffix(agentFile, ".md")
 		agentContents[name] = content
 	}
 
 	skillContents := make(map[string]map[string][]byte)
 	for _, skillPath := range manifest.Skills {
 		skillName := filepath.Base(skillPath)
-		// Skills are symlinked to _skills/ in the repo, fetch from canonical source
 		repoPath := "_skills/" + skillName
 		files, err := client.FetchSkillTree(repoPath)
 		if err != nil {
