@@ -73,7 +73,8 @@ def cmd_plugins() -> int:
         name = entry.get("name", "?")
         if not source:
             continue
-        plugin_root = REPO_ROOT / "plugins" / str(source)
+        clean_source = str(source).lstrip("./")
+        plugin_root = REPO_ROOT / clean_source
         pj = plugin_root / ".claude-plugin" / "plugin.json"
         if not pj.is_file():
             eprint(f'ERROR: [{name}] Missing plugin.json at {pj.relative_to(REPO_ROOT)}')
@@ -324,10 +325,6 @@ def cmd_symlinks() -> int:
 
 
 def cmd_mcps() -> int:
-    mcps_root = REPO_ROOT / "_mcps"
-    if not mcps_root.is_dir():
-        eprint(f"ERROR: Missing _mcps directory: {mcps_root}")
-        return 1
     data = load_marketplace()
     mcp_entries = [p for p in data.get("plugins", []) if isinstance(p, dict) and p.get("category") == "mcps"]
     errors = 0
@@ -335,29 +332,32 @@ def cmd_mcps() -> int:
     for entry in mcp_entries:
         source = entry.get("source", "")
         name = entry.get("name", "?")
-        mcp_dir = mcps_root / source
-        mcp_json = mcp_dir / "mcp.json"
+        clean_source = str(source).lstrip("./")
+        plugin_dir = REPO_ROOT / clean_source
+        mcp_json = plugin_dir / ".mcp.json"
         if not mcp_json.is_file():
-            eprint(f"ERROR: [{name}] Missing mcp.json at _mcps/{source}/mcp.json")
+            eprint(f"ERROR: [{name}] Missing .mcp.json at {clean_source}/.mcp.json")
             errors += 1
             continue
         try:
             with open(mcp_json, encoding="utf-8") as f:
                 manifest = json.load(f)
         except json.JSONDecodeError as ex:
-            eprint(f"ERROR: [{name}] Invalid JSON in _mcps/{source}/mcp.json: {ex}")
+            eprint(f"ERROR: [{name}] Invalid JSON in {clean_source}/.mcp.json: {ex}")
             errors += 1
             continue
-        for field in ("name", "description", "command", "args"):
-            if field not in manifest or not manifest[field]:
-                eprint(f'ERROR: [{name}] mcp.json missing required field "{field}"')
-                errors += 1
-        if manifest.get("name") and manifest["name"] != source:
-            eprint(
-                f'ERROR: [{name}] mcp.json name "{manifest["name"]}" '
-                f'does not match directory name "{source}"'
-            )
+        if not isinstance(manifest, dict) or not manifest:
+            eprint(f"ERROR: [{name}] .mcp.json must contain at least one server entry")
             errors += 1
+            continue
+        for server_name, server_cfg in manifest.items():
+            if not isinstance(server_cfg, dict):
+                eprint(f'ERROR: [{name}] server "{server_name}" must be an object')
+                errors += 1
+                continue
+            if "command" not in server_cfg or not server_cfg["command"]:
+                eprint(f'ERROR: [{name}] server "{server_name}" missing required field "command"')
+                errors += 1
         count += 1
 
     if errors:
