@@ -1,13 +1,18 @@
 package cmd
 
 import (
+	"fmt"
+
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
+
+	"github.com/CaptShanks/shipwright/cli/internal/tui"
 )
 
 var (
-	cliVersion  string
-	targetFlag  string
-	globalFlag  bool
+	cliVersion string
+	targetFlag string
+	globalFlag bool
 )
 
 var rootCmd = &cobra.Command{
@@ -17,7 +22,17 @@ var rootCmd = &cobra.Command{
 into any supported AI tool's native directory structure.
 
 Supported tools: cursor, claude, codex
-Install modes: local (per-project, default) or global (user-wide)`,
+Install modes: local (per-project, default) or global (user-wide)
+
+Run with no arguments to launch the interactive TUI dashboard.`,
+	RunE: func(_ *cobra.Command, _ []string) error {
+		app := tui.NewApp(cliVersion)
+		p := tea.NewProgram(app, tea.WithAltScreen())
+		if _, err := p.Run(); err != nil {
+			return fmt.Errorf("TUI error: %w", err)
+		}
+		return nil
+	},
 }
 
 func init() {

@@ -26,6 +26,8 @@ type McpInstaller interface {
 	Install(name string, cfg McpConfig, scope Scope, force bool) error
 	Remove(name string, scope Scope) error
 	ListInstalled(scope Scope) ([]string, error)
+	ReadConfig(name string, scope Scope) (*McpConfig, error)
+	SaveConfig(name string, cfg McpConfig, scope Scope) error
 }
 
 // AllMcp returns MCP installer instances for every supported tool.
@@ -75,6 +77,14 @@ func (m *McpCursorInstaller) ListInstalled(scope Scope) ([]string, error) {
 	return listMcpEntries(m.ConfigPath(scope), "mcpServers")
 }
 
+func (m *McpCursorInstaller) ReadConfig(name string, scope Scope) (*McpConfig, error) {
+	return readMcpEntry(m.ConfigPath(scope), "mcpServers", name)
+}
+
+func (m *McpCursorInstaller) SaveConfig(name string, cfg McpConfig, scope Scope) error {
+	return upsertMcpEntry(m.ConfigPath(scope), "mcpServers", name, cfg, true)
+}
+
 // --- Claude MCP Installer ---
 
 type McpClaudeInstaller struct{}
@@ -100,6 +110,14 @@ func (m *McpClaudeInstaller) ListInstalled(scope Scope) ([]string, error) {
 	return listMcpEntries(m.ConfigPath(scope), "mcpServers")
 }
 
+func (m *McpClaudeInstaller) ReadConfig(name string, scope Scope) (*McpConfig, error) {
+	return readMcpEntry(m.ConfigPath(scope), "mcpServers", name)
+}
+
+func (m *McpClaudeInstaller) SaveConfig(name string, cfg McpConfig, scope Scope) error {
+	return upsertMcpEntry(m.ConfigPath(scope), "mcpServers", name, cfg, true)
+}
+
 // --- VS Code MCP Installer ---
 
 type McpVSCodeInstaller struct{}
@@ -123,6 +141,14 @@ func (m *McpVSCodeInstaller) Remove(name string, scope Scope) error {
 
 func (m *McpVSCodeInstaller) ListInstalled(scope Scope) ([]string, error) {
 	return listMcpEntries(m.ConfigPath(scope), "servers")
+}
+
+func (m *McpVSCodeInstaller) ReadConfig(name string, scope Scope) (*McpConfig, error) {
+	return readMcpEntry(m.ConfigPath(scope), "servers", name)
+}
+
+func (m *McpVSCodeInstaller) SaveConfig(name string, cfg McpConfig, scope Scope) error {
+	return upsertMcpEntry(m.ConfigPath(scope), "servers", name, cfg, true)
 }
 
 func vscodeGlobalMcpPath() string {
@@ -167,6 +193,44 @@ func saveJSONFile(path string, obj map[string]any) error {
 	}
 	data = append(data, '\n')
 	return os.WriteFile(path, data, 0o644)
+}
+
+func readMcpEntry(path, rootKey, name string) (*McpConfig, error) {
+	obj, err := loadJSONFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	servers, ok := obj[rootKey].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("no %s section in %s", rootKey, path)
+	}
+
+	entry, ok := servers[name].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%s not found in %s", name, path)
+	}
+
+	cfg := &McpConfig{}
+	if cmd, ok := entry["command"].(string); ok {
+		cfg.Command = cmd
+	}
+	if args, ok := entry["args"].([]any); ok {
+		for _, a := range args {
+			if s, ok := a.(string); ok {
+				cfg.Args = append(cfg.Args, s)
+			}
+		}
+	}
+	if env, ok := entry["env"].(map[string]any); ok {
+		cfg.Env = make(map[string]string)
+		for k, v := range env {
+			if s, ok := v.(string); ok {
+				cfg.Env[k] = s
+			}
+		}
+	}
+	return cfg, nil
 }
 
 func upsertMcpEntry(path, rootKey, name string, cfg McpConfig, force bool) error {
