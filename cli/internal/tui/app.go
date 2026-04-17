@@ -2,7 +2,6 @@ package tui
 
 import (
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/CaptShanks/shipwright/cli/internal/tui/common"
@@ -29,8 +28,9 @@ type App struct {
 	installed   views.Installed
 	detail      views.Detail
 	mcpConfig   views.McpConfig
-	activeView  int
-	prevView    int
+	activeView       int
+	prevView         int
+	marketplaceReady bool
 	width       int
 	height      int
 	version     string
@@ -53,7 +53,6 @@ func NewApp(version string) App {
 func (a App) Init() tea.Cmd {
 	return tea.Batch(
 		a.dashboard.Init(),
-		a.marketplace.Init(),
 		a.installed.Init(),
 	)
 }
@@ -81,16 +80,26 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, tea.Quit
 			case key.Matches(msg, Keys.Tab):
 				a.tabs.Next()
-				a.activeView = a.tabs.Active
+				if cmd := a.setView(a.tabs.Active); cmd != nil {
+					cmds = append(cmds, cmd)
+				}
 			case key.Matches(msg, Keys.ShiftTab):
 				a.tabs.Prev()
-				a.activeView = a.tabs.Active
+				if cmd := a.setView(a.tabs.Active); cmd != nil {
+					cmds = append(cmds, cmd)
+				}
 			case key.Matches(msg, Keys.Num1):
-				a.setView(ViewDashboard)
+				if cmd := a.setView(ViewDashboard); cmd != nil {
+					cmds = append(cmds, cmd)
+				}
 			case key.Matches(msg, Keys.Num2):
-				a.setView(ViewMarketplace)
+				if cmd := a.setView(ViewMarketplace); cmd != nil {
+					cmds = append(cmds, cmd)
+				}
 			case key.Matches(msg, Keys.Num3):
-				a.setView(ViewInstalled)
+				if cmd := a.setView(ViewInstalled); cmd != nil {
+					cmds = append(cmds, cmd)
+				}
 			}
 		}
 
@@ -123,16 +132,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	sizeMsg := tea.WindowSizeMsg{Width: a.width, Height: a.height - 4}
 
-	// Data and spinner messages must reach their target view regardless of
-	// which view is active, since fetches start at Init time.
-	switch msg.(type) {
-	case common.MarketplaceFetchedMsg, spinner.TickMsg:
-		if a.activeView != ViewMarketplace {
-			var cmd tea.Cmd
-			a.marketplace, cmd = a.marketplace.Update(msg)
-			cmds = append(cmds, cmd)
-		}
-	}
+	// Data messages must reach their target view regardless of which view is active.
 	switch msg.(type) {
 	case common.StateFetchedMsg:
 		if a.activeView != ViewDashboard {
@@ -281,9 +281,14 @@ func (a App) View() string {
 	return result
 }
 
-func (a *App) setView(v int) {
+func (a *App) setView(v int) tea.Cmd {
 	if v < len(tabNames) {
 		a.activeView = v
 		a.tabs.SetActive(v)
 	}
+	if v == ViewMarketplace && !a.marketplaceReady {
+		a.marketplaceReady = true
+		return a.marketplace.Init()
+	}
+	return nil
 }
