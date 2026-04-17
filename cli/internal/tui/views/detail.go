@@ -254,8 +254,6 @@ func (d Detail) View() string {
 		sb.WriteString(d.viewScopePicker())
 	case phaseInstalling:
 		sb.WriteString("  " + d.spinner.View() + " Installing...\n")
-	default:
-		sb.WriteString(common.StyleDim.Render("  [i] install  [esc] back") + "\n")
 	}
 
 	return sb.String()

@@ -184,7 +184,6 @@ func (m Marketplace) View() string {
 	}
 
 	sb.WriteString(m.list.View())
-	sb.WriteString("\n" + common.StyleDim.Render("  ←/→ category  /filter  enter select"))
 
 	return sb.String()
 }

@@ -182,7 +182,6 @@ func (m McpConfig) View() string {
 		sb.WriteString("  " + common.StyleOK.Render("✓ Saved successfully") + "\n")
 	}
 
-	sb.WriteString(common.StyleDim.Render("  [ctrl+s] save  [tab] next field  [esc] back") + "\n")
 	return sb.String()
 }
 

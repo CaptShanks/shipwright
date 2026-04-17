@@ -112,9 +112,6 @@ func (d Dashboard) View() string {
 		sb.WriteString(common.StyleDim.Render("  No plugins installed yet. Press 2 to browse the marketplace.") + "\n")
 	}
 
-	sb.WriteString("\n")
-	sb.WriteString(common.StyleDim.Render("  [2] marketplace  [3] installed  [?] help") + "\n")
-
 	return sb.String()
 }
 

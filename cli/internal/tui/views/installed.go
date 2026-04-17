@@ -199,9 +199,6 @@ func (v Installed) View() string {
 		sb.WriteString("  " + v.table.View() + "\n")
 	}
 
-	sb.WriteString("\n")
-	sb.WriteString(common.StyleDim.Render("  [d] uninstall  [u] update  [e] edit MCP  [/] filter") + "\n")
-
 	if v.confirm.Visible {
 		return v.confirm.View(v.width, v.height)
 	}

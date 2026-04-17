@@ -187,20 +187,55 @@ func (a App) View() string {
 	}
 
 	viewName := "Dashboard"
-	hints := " tab navigate  ? help  q quit"
-	if a.activeView < len(tabNames) {
-		viewName = tabNames[a.activeView]
-	} else if a.activeView == ViewDetail {
+	var hints []components.KeyHint
+
+	switch a.activeView {
+	case ViewDashboard:
+		viewName = "Dashboard"
+		hints = []components.KeyHint{
+			{Key: "tab", Desc: "next tab"},
+			{Key: "1/2/3", Desc: "jump to tab"},
+			{Key: "q", Desc: "quit"},
+		}
+	case ViewMarketplace:
+		viewName = "Marketplace"
+		hints = []components.KeyHint{
+			{Key: "↑/↓", Desc: "navigate"},
+			{Key: "←/→", Desc: "category"},
+			{Key: "/", Desc: "filter"},
+			{Key: "enter", Desc: "details"},
+			{Key: "tab", Desc: "next tab"},
+			{Key: "q", Desc: "quit"},
+		}
+	case ViewInstalled:
+		viewName = "Installed"
+		hints = []components.KeyHint{
+			{Key: "↑/↓", Desc: "navigate"},
+			{Key: "/", Desc: "filter"},
+			{Key: "d", Desc: "uninstall"},
+			{Key: "u", Desc: "update"},
+			{Key: "e", Desc: "edit MCP"},
+			{Key: "tab", Desc: "next tab"},
+			{Key: "q", Desc: "quit"},
+		}
+	case ViewDetail:
 		viewName = "Detail"
-		hints = " esc back  i install  q quit"
-	} else if a.activeView == ViewMcpConfig {
+		hints = []components.KeyHint{
+			{Key: "i", Desc: "install"},
+			{Key: "esc", Desc: "back"},
+		}
+	case ViewMcpConfig:
 		viewName = "MCP Config"
-		hints = " esc back  ctrl+s save  tab next"
+		hints = []components.KeyHint{
+			{Key: "tab/↑/↓", Desc: "next field"},
+			{Key: "ctrl+s", Desc: "save"},
+			{Key: "esc", Desc: "back"},
+		}
 	}
 
 	a.statusBar = components.StatusBar{
 		ViewName: viewName,
-		HintKeys: hints,
+		Hints:    hints,
 		Version:  a.version,
 		Width:    a.width,
 	}
