@@ -2,11 +2,15 @@ package installer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 )
+
+// ErrAlreadyExists is returned when an MCP entry already exists and force is false.
+var ErrAlreadyExists = errors.New("already exists")
 
 // McpConfig is the JSON shape written into each tool's config entry.
 type McpConfig struct {
@@ -19,7 +23,7 @@ type McpConfig struct {
 type McpInstaller interface {
 	Name() string
 	ConfigPath(scope Scope) string
-	Install(name string, cfg McpConfig, scope Scope) error
+	Install(name string, cfg McpConfig, scope Scope, force bool) error
 	Remove(name string, scope Scope) error
 	ListInstalled(scope Scope) ([]string, error)
 }
@@ -59,8 +63,8 @@ func (m *McpCursorInstaller) ConfigPath(scope Scope) string {
 	return filepath.Join(ProjectRoot(), ".cursor", "mcp.json")
 }
 
-func (m *McpCursorInstaller) Install(name string, cfg McpConfig, scope Scope) error {
-	return upsertMcpEntry(m.ConfigPath(scope), "mcpServers", name, cfg)
+func (m *McpCursorInstaller) Install(name string, cfg McpConfig, scope Scope, force bool) error {
+	return upsertMcpEntry(m.ConfigPath(scope), "mcpServers", name, cfg, force)
 }
 
 func (m *McpCursorInstaller) Remove(name string, scope Scope) error {
@@ -84,8 +88,8 @@ func (m *McpClaudeInstaller) ConfigPath(scope Scope) string {
 	return filepath.Join(ProjectRoot(), ".claude.json")
 }
 
-func (m *McpClaudeInstaller) Install(name string, cfg McpConfig, scope Scope) error {
-	return upsertMcpEntry(m.ConfigPath(scope), "mcpServers", name, cfg)
+func (m *McpClaudeInstaller) Install(name string, cfg McpConfig, scope Scope, force bool) error {
+	return upsertMcpEntry(m.ConfigPath(scope), "mcpServers", name, cfg, force)
 }
 
 func (m *McpClaudeInstaller) Remove(name string, scope Scope) error {
@@ -109,8 +113,8 @@ func (m *McpVSCodeInstaller) ConfigPath(scope Scope) string {
 	return filepath.Join(ProjectRoot(), ".vscode", "mcp.json")
 }
 
-func (m *McpVSCodeInstaller) Install(name string, cfg McpConfig, scope Scope) error {
-	return upsertMcpEntry(m.ConfigPath(scope), "servers", name, cfg)
+func (m *McpVSCodeInstaller) Install(name string, cfg McpConfig, scope Scope, force bool) error {
+	return upsertMcpEntry(m.ConfigPath(scope), "servers", name, cfg, force)
 }
 
 func (m *McpVSCodeInstaller) Remove(name string, scope Scope) error {
@@ -165,7 +169,7 @@ func saveJSONFile(path string, obj map[string]any) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-func upsertMcpEntry(path, rootKey, name string, cfg McpConfig) error {
+func upsertMcpEntry(path, rootKey, name string, cfg McpConfig, force bool) error {
 	obj, err := loadJSONFile(path)
 	if err != nil {
 		return err
@@ -174,6 +178,10 @@ func upsertMcpEntry(path, rootKey, name string, cfg McpConfig) error {
 	servers, ok := obj[rootKey].(map[string]any)
 	if !ok {
 		servers = make(map[string]any)
+	}
+
+	if _, exists := servers[name]; exists && !force {
+		return fmt.Errorf("%w: %s in %s", ErrAlreadyExists, name, path)
 	}
 
 	entry := map[string]any{

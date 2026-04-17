@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -12,6 +13,8 @@ import (
 	"github.com/CaptShanks/shipwright/cli/internal/ui"
 	"github.com/spf13/cobra"
 )
+
+var forceFlag bool
 
 var mcpCmd = &cobra.Command{
 	Use:   "mcp",
@@ -68,6 +71,8 @@ func init() {
 	mcpCmd.AddCommand(mcpInstallCmd)
 	mcpCmd.AddCommand(mcpRemoveCmd)
 	mcpCmd.AddCommand(mcpListCmd)
+
+	mcpInstallCmd.Flags().BoolVarP(&forceFlag, "force", "f", false, "overwrite existing MCP entry")
 }
 
 func runMcpInstall(cmd *cobra.Command, args []string) error {
@@ -129,7 +134,7 @@ func runMcpInstall(cmd *cobra.Command, args []string) error {
 		wg.Add(1)
 		go func(inst installer.McpInstaller) {
 			defer wg.Done()
-			err := inst.Install(manifest.Name, cfg, scope)
+			err := inst.Install(manifest.Name, cfg, scope, forceFlag)
 			results <- result{
 				target:     inst.Name(),
 				configPath: inst.ConfigPath(scope),
@@ -151,6 +156,10 @@ func runMcpInstall(cmd *cobra.Command, args []string) error {
 	hadError := false
 	for res := range results {
 		if res.err != nil {
+			if errors.Is(res.err, installer.ErrAlreadyExists) {
+				ui.Warn("%s: %s already configured in %s (use --force to overwrite)", res.target, mcpName, res.configPath)
+				continue
+			}
 			ui.Error("%s: %v", res.target, res.err)
 			hadError = true
 			continue
