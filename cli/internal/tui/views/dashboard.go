@@ -62,17 +62,34 @@ func (d Dashboard) View() string {
 		counts[inst.Target] = c
 	}
 
+	toolIcons := map[string]string{
+		"cursor": "⌨",
+		"claude": "🧠",
+		"codex":  "📟",
+	}
+
 	var cards []string
 	for _, tool := range []string{"cursor", "claude", "codex"} {
 		c := counts[tool]
 		total := c.agents + c.skills + c.mcps
 
-		title := common.StyleBold.Render(strings.ToUpper(tool[:1]) + tool[1:])
-		body := fmt.Sprintf(
-			"%s agents  %s skills  %s MCPs",
-			common.StyleOK.Render(fmt.Sprintf("%d", c.agents)),
-			common.StyleAccent.Render(fmt.Sprintf("%d", c.skills)),
-			lipgloss.NewStyle().Foreground(common.ColorPrimary).Render(fmt.Sprintf("%d", c.mcps)),
+		icon := toolIcons[tool]
+		title := common.StyleBold.Render(icon + " " + strings.ToUpper(tool[:1]) + tool[1:])
+
+		agentLine := fmt.Sprintf("  %s %s  %s",
+			common.CategoryIcons["agents"],
+			lipgloss.NewStyle().Foreground(common.ColorAgent).Render(fmt.Sprintf("%d", c.agents)),
+			lipgloss.NewStyle().Foreground(common.ColorAgent).Render("Agents"),
+		)
+		skillLine := fmt.Sprintf("  %s %s  %s",
+			common.CategoryIcons["skills"],
+			lipgloss.NewStyle().Foreground(common.ColorSkill).Render(fmt.Sprintf("%d", c.skills)),
+			lipgloss.NewStyle().Foreground(common.ColorSkill).Render("Skills"),
+		)
+		mcpLine := fmt.Sprintf("  %s %s  %s",
+			common.CategoryIcons["mcps"],
+			lipgloss.NewStyle().Foreground(common.ColorMCP).Render(fmt.Sprintf("%d", c.mcps)),
+			lipgloss.NewStyle().Foreground(common.ColorMCP).Render("MCPs"),
 		)
 
 		style := common.StyleCard
@@ -81,7 +98,7 @@ func (d Dashboard) View() string {
 		}
 
 		cardWidth := max((d.width-10)/3, 20)
-		card := style.Width(cardWidth).Render(title + "\n" + body)
+		card := style.Width(cardWidth).Render(title + "\n" + agentLine + "\n" + skillLine + "\n" + mcpLine)
 		cards = append(cards, card)
 	}
 
@@ -96,13 +113,31 @@ func (d Dashboard) View() string {
 	if len(recent) > 0 {
 		sb.WriteString(common.StyleTitle.Render("  Recent Activity") + "\n\n")
 		for _, inst := range recent {
+			cat := "agents"
 			name := inst.Plugin
 			if strings.HasPrefix(name, "mcp:") {
-				name = common.StyleBadge.Render("MCP") + " " + strings.TrimPrefix(name, "mcp:")
+				cat = "mcps"
+				name = strings.TrimPrefix(name, "mcp:")
+			} else if strings.Contains(name, "skill") {
+				cat = "skills"
 			}
-			line := fmt.Sprintf("  %s  %s  %s  %s",
-				name,
-				common.StyleDim.Render(inst.Target),
+			icon := common.CategoryIcons[cat]
+			badge := common.CategoryBadge(cat)
+			catColor := common.CategoryColor(cat)
+
+			nameStyled := lipgloss.NewStyle().Bold(true).Foreground(catColor).Render(name)
+
+			targetBadge := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("15")).
+				Background(lipgloss.Color("240")).
+				Padding(0, 1).
+				Render(inst.Target)
+
+			line := fmt.Sprintf("  %s %s  %s  %s  %s  %s",
+				icon,
+				nameStyled,
+				badge,
+				targetBadge,
 				common.StyleDim.Render(inst.Scope),
 				common.StyleDim.Render(inst.InstalledAt.Format("Jan 02 15:04")),
 			)

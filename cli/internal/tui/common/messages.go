@@ -52,6 +52,12 @@ type UpdateCompleteMsg struct {
 	Err    error
 }
 
+// BatchInstallCompleteMsg is sent when a batch install finishes.
+type BatchInstallCompleteMsg struct {
+	Succeeded []string
+	Failed    map[string]error
+}
+
 // ToastMsg triggers a transient notification.
 type ToastMsg struct {
 	Message string

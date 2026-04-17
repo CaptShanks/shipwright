@@ -189,7 +189,7 @@ func (d Detail) startInstall() (Detail, tea.Cmd) {
 	isMcp := item.Category == "mcps"
 
 	return d, tea.Batch(d.spinner.Tick, func() tea.Msg {
-		return doInstall(item, selectedTargets, scope, isMcp)
+		return DoInstall(item, selectedTargets, scope, isMcp)
 	})
 }
 
@@ -198,11 +198,17 @@ func (d Detail) View() string {
 		return common.StyleDim.Render("\n  No item selected")
 	}
 
+	cat := d.item.Category
+	catColor := common.CategoryColor(cat)
+	icon := common.CategoryIcons[cat]
+	badge := common.CategoryBadge(cat)
+
 	var sb strings.Builder
 	sb.WriteString("\n")
-	sb.WriteString(common.StyleTitle.Render("  "+d.item.Name) + "  ")
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(catColor)
+	sb.WriteString("  " + icon + " " + titleStyle.Render(d.item.Name) + "  ")
 	sb.WriteString(common.StyleDim.Render("v"+d.item.Version) + "  ")
-	sb.WriteString(common.StyleBadge.Render(d.item.Category) + "\n\n")
+	sb.WriteString(badge + "\n\n")
 	sb.WriteString("  " + d.item.Description + "\n\n")
 
 	if d.loading {
@@ -215,7 +221,13 @@ func (d Detail) View() string {
 	}
 
 	if d.isInstalled() {
-		sb.WriteString("  " + common.StyleBadge.Render("INSTALLED") + "\n\n")
+		installedBadge := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("0")).
+			Background(common.ColorSuccess).
+			Bold(true).
+			Padding(0, 1).
+			Render("✓ INSTALLED")
+		sb.WriteString("  " + installedBadge + "\n\n")
 	}
 
 	if d.manifest != nil {
@@ -242,7 +254,11 @@ func (d Detail) View() string {
 	}
 
 	if len(d.item.Tags) > 0 {
-		sb.WriteString("\n  " + common.StyleDim.Render("Tags: "+strings.Join(d.item.Tags, ", ")) + "\n")
+		var tags []string
+		for _, t := range d.item.Tags {
+			tags = append(tags, lipgloss.NewStyle().Foreground(catColor).Render("#"+t))
+		}
+		sb.WriteString("\n  " + strings.Join(tags, " ") + "\n")
 	}
 
 	sb.WriteString("\n")
@@ -337,7 +353,7 @@ func (d Detail) refreshState() tea.Msg {
 	return common.StateFetchedMsg{Installations: installs, Err: err}
 }
 
-func doInstall(item registry.MarketplaceItem, targets []string, scope installer.Scope, isMcp bool) common.InstallCompleteMsg {
+func DoInstall(item registry.MarketplaceItem, targets []string, scope installer.Scope, isMcp bool) common.InstallCompleteMsg {
 	client := registry.NewClient()
 	store := state.NewStore()
 

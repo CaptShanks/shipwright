@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -16,13 +15,14 @@ import (
 )
 
 type Installed struct {
-	table         table.Model
 	filter        textinput.Model
 	confirm       components.ConfirmDialog
 	installations []state.Installation
 	filtered      []state.Installation
 	filtering     bool
 	loaded        bool
+	cursor        int
+	scrollOffset  int
 	width, height int
 	pendingAction string
 	pendingPlugin string
@@ -36,33 +36,7 @@ func NewInstalled() Installed {
 	ti.Placeholder = "type to filter..."
 	ti.CharLimit = 64
 
-	cols := []table.Column{
-		{Title: "Plugin", Width: 24},
-		{Title: "Target", Width: 10},
-		{Title: "Scope", Width: 8},
-		{Title: "Version", Width: 10},
-		{Title: "Files", Width: 6},
-		{Title: "Installed", Width: 16},
-	}
-
-	t := table.New(
-		table.WithColumns(cols),
-		table.WithFocused(true),
-	)
-
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		Bold(true).
-		Foreground(common.ColorPrimary).
-		BorderBottom(true).
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(common.ColorDim)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("0")).
-		Background(common.ColorPrimary)
-	t.SetStyles(s)
-
-	return Installed{table: t, filter: ti}
+	return Installed{filter: ti}
 }
 
 func (v Installed) Init() tea.Cmd {
@@ -74,8 +48,6 @@ func (v Installed) Update(msg tea.Msg) (Installed, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		v.width = msg.Width
 		v.height = msg.Height
-		v.table.SetWidth(msg.Width - 4)
-		v.table.SetHeight(msg.Height - 10)
 
 	case common.StateFetchedMsg:
 		v.loaded = true
@@ -120,47 +92,48 @@ func (v Installed) Update(msg tea.Msg) (Installed, tea.Cmd) {
 			v.filtering = true
 			v.filter.Focus()
 			return v, textinput.Blink
+		case "j", "down":
+			if v.cursor < len(v.filtered)-1 {
+				v.cursor++
+				v.ensureVisible()
+			}
+		case "k", "up":
+			if v.cursor > 0 {
+				v.cursor--
+				v.ensureVisible()
+			}
 		case "d", "delete":
 			if len(v.filtered) > 0 {
-				row := v.table.SelectedRow()
-				if row != nil {
-					v.pendingAction = "uninstall"
-					v.pendingPlugin = row[0]
-					v.pendingTarget = row[1]
-					v.pendingScope = row[2]
-					if v.pendingScope == "local" {
-						v.pendingPath = installer.ProjectRoot()
-					}
-					v.confirm = components.ConfirmDialog{
-						Title:   "Uninstall " + row[0] + "?",
-						Message: fmt.Sprintf("Remove %s from %s (%s)?", row[0], row[1], row[2]),
-						Visible: true,
-					}
+				inst := v.filtered[v.cursor]
+				v.pendingAction = "uninstall"
+				v.pendingPlugin = inst.Plugin
+				v.pendingTarget = inst.Target
+				v.pendingScope = inst.Scope
+				if inst.Scope == "local" {
+					v.pendingPath = installer.ProjectRoot()
+				}
+				v.confirm = components.ConfirmDialog{
+					Title:   "Uninstall " + inst.Plugin + "?",
+					Message: fmt.Sprintf("Remove %s from %s (%s)?", inst.Plugin, inst.Target, inst.Scope),
+					Visible: true,
 				}
 			}
 		case "u":
 			if len(v.filtered) > 0 {
-				row := v.table.SelectedRow()
-				if row != nil {
-					return v, v.doUpdate(row[0], row[1], row[2])
-				}
+				inst := v.filtered[v.cursor]
+				return v, v.doUpdate(inst.Plugin, inst.Target, inst.Scope)
 			}
 		case "e":
 			if len(v.filtered) > 0 {
-				row := v.table.SelectedRow()
-				if row != nil && strings.HasPrefix(row[0], "mcp:") {
+				inst := v.filtered[v.cursor]
+				if strings.HasPrefix(inst.Plugin, "mcp:") {
+					row := []string{inst.Plugin, inst.Target, inst.Scope}
 					return v, func() tea.Msg {
 						return common.NavigateMsg{View: 4, Context: row}
 					}
 				}
 			}
 		}
-	}
-
-	if v.loaded && !v.filtering {
-		var cmd tea.Cmd
-		v.table, cmd = v.table.Update(msg)
-		return v, cmd
 	}
 
 	return v, nil
@@ -195,8 +168,43 @@ func (v Installed) View() string {
 
 	if len(v.filtered) == 0 {
 		sb.WriteString(common.StyleDim.Render("  No plugins installed. Press 2 to browse the marketplace.") + "\n")
-	} else {
-		sb.WriteString("  " + v.table.View() + "\n")
+		return sb.String()
+	}
+
+	// Summary counts
+	agents, skills, mcps := 0, 0, 0
+	for _, inst := range v.filtered {
+		switch {
+		case strings.HasPrefix(inst.Plugin, "mcp:"):
+			mcps++
+		case strings.Contains(inst.Plugin, "skill"):
+			skills++
+		default:
+			agents++
+		}
+	}
+	summary := fmt.Sprintf("  %s  %s  %s  %s",
+		common.StyleDim.Render(fmt.Sprintf("%d total", len(v.filtered))),
+		lipgloss.NewStyle().Foreground(common.ColorAgent).Render(fmt.Sprintf("%d agents", agents)),
+		lipgloss.NewStyle().Foreground(common.ColorSkill).Render(fmt.Sprintf("%d skills", skills)),
+		lipgloss.NewStyle().Foreground(common.ColorMCP).Render(fmt.Sprintf("%d MCPs", mcps)),
+	)
+	sb.WriteString(summary + "\n\n")
+
+	visibleRows := v.height - 12
+	if visibleRows < 3 {
+		visibleRows = 3
+	}
+
+	end := v.scrollOffset + visibleRows
+	if end > len(v.filtered) {
+		end = len(v.filtered)
+	}
+
+	for i := v.scrollOffset; i < end; i++ {
+		inst := v.filtered[i]
+		selected := i == v.cursor
+		sb.WriteString(v.renderRow(inst, selected) + "\n")
 	}
 
 	if v.confirm.Visible {
@@ -204,6 +212,65 @@ func (v Installed) View() string {
 	}
 
 	return sb.String()
+}
+
+func (v Installed) renderRow(inst state.Installation, selected bool) string {
+	cat := "agents"
+	name := inst.Plugin
+	if strings.HasPrefix(inst.Plugin, "mcp:") {
+		cat = "mcps"
+		name = strings.TrimPrefix(inst.Plugin, "mcp:")
+	} else if strings.Contains(inst.Plugin, "skill") {
+		cat = "skills"
+	}
+
+	catColor := common.CategoryColor(cat)
+	badge := common.CategoryBadge(cat)
+	icon := common.CategoryIcons[cat]
+
+	cursor := "  "
+	nameStyle := lipgloss.NewStyle().Bold(true)
+	rowBg := lipgloss.NewStyle()
+	if selected {
+		cursor = lipgloss.NewStyle().Foreground(catColor).Render("▸ ")
+		nameStyle = nameStyle.Foreground(catColor)
+		rowBg = rowBg.Background(lipgloss.Color("236"))
+	}
+
+	targetBadge := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")).
+		Background(lipgloss.Color("240")).
+		Padding(0, 1).
+		Render(inst.Target)
+
+	scopeStr := common.StyleDim.Render(inst.Scope)
+	verStr := common.StyleDim.Render("v" + inst.Version)
+	filesStr := common.StyleDim.Render(fmt.Sprintf("%d files", len(inst.Files)))
+	timeStr := common.StyleDim.Render(inst.InstalledAt.Format("Jan 02 15:04"))
+
+	line1 := fmt.Sprintf(" %s%s %s  %s  %s", cursor, icon, nameStyle.Render(name), badge, targetBadge)
+	line2 := fmt.Sprintf("       %s  %s  %s  %s", verStr, scopeStr, filesStr, timeStr)
+
+	separator := lipgloss.NewStyle().Foreground(lipgloss.Color("236")).Render(
+		"     " + strings.Repeat("─", max(v.width-10, 20)),
+	)
+
+	if selected {
+		return rowBg.Width(v.width - 2).Render(line1+"\n"+line2) + "\n" + separator
+	}
+	return line1 + "\n" + line2 + "\n" + separator
+}
+
+func (v *Installed) ensureVisible() {
+	visibleRows := v.height - 12
+	if visibleRows < 3 {
+		visibleRows = 3
+	}
+	if v.cursor < v.scrollOffset {
+		v.scrollOffset = v.cursor
+	} else if v.cursor >= v.scrollOffset+visibleRows {
+		v.scrollOffset = v.cursor - visibleRows + 1
+	}
 }
 
 func (v *Installed) applyFilter() {
@@ -220,18 +287,9 @@ func (v *Installed) applyFilter() {
 		v.filtered = append(v.filtered, inst)
 	}
 
-	rows := make([]table.Row, len(v.filtered))
-	for i, inst := range v.filtered {
-		rows[i] = table.Row{
-			inst.Plugin,
-			inst.Target,
-			inst.Scope,
-			inst.Version,
-			fmt.Sprintf("%d", len(inst.Files)),
-			inst.InstalledAt.Format("Jan 02 15:04"),
-		}
+	if v.cursor >= len(v.filtered) {
+		v.cursor = max(len(v.filtered)-1, 0)
 	}
-	v.table.SetRows(rows)
 }
 
 func (v Installed) loadState() tea.Msg {

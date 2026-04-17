@@ -25,9 +25,11 @@ func (m marketplaceItem) FilterValue() string {
 	return m.item.Name + " " + m.item.Description + " " + strings.Join(m.item.Tags, " ")
 }
 
-type marketplaceDelegate struct{}
+type marketplaceDelegate struct {
+	selected map[string]bool
+}
 
-func (d marketplaceDelegate) Height() int                             { return 2 }
+func (d marketplaceDelegate) Height() int                             { return 3 }
 func (d marketplaceDelegate) Spacing() int                            { return 0 }
 func (d marketplaceDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
@@ -43,29 +45,52 @@ func (d marketplaceDelegate) Render(w io.Writer, m list.Model, index int, item l
 	ver := mi.item.Version
 
 	selected := index == m.Index()
+	catColor := common.CategoryColor(cat)
 
-	nameStyle := lipgloss.NewStyle()
+	nameStyle := lipgloss.NewStyle().Bold(true)
 	if selected {
-		nameStyle = nameStyle.Bold(true).Foreground(common.ColorPrimary)
+		nameStyle = nameStyle.Foreground(catColor)
 	}
 
-	catBadge := common.StyleDim.Render("[" + cat + "]")
+	icon := common.CategoryIcons[cat]
+	badge := common.CategoryBadge(cat)
 	verStr := common.StyleDim.Render("v" + ver)
 
-	line1 := fmt.Sprintf("  %s %s %s", nameStyle.Render(name), catBadge, verStr)
+	checked := d.selected[name]
+	checkBox := lipgloss.NewStyle().Foreground(common.ColorDim).Render("○")
+	if checked {
+		checkBox = lipgloss.NewStyle().Foreground(common.ColorSuccess).Bold(true).Render("●")
+	}
 
-	maxDesc := m.Width() - 6
+	cursor := " "
+	if selected {
+		cursor = lipgloss.NewStyle().Foreground(catColor).Render("▸")
+	}
+
+	line1 := fmt.Sprintf(" %s %s %s %s  %s  %s", cursor, checkBox, icon, nameStyle.Render(name), badge, verStr)
+
+	maxDesc := m.Width() - 8
 	if maxDesc > 0 && len(desc) > maxDesc {
 		desc = desc[:maxDesc-3] + "..."
 	}
-	line2 := common.StyleDim.Render("    " + desc)
+	line2 := common.StyleDim.Render("     " + desc)
 
-	if selected {
-		cursor := lipgloss.NewStyle().Foreground(common.ColorPrimary).Render("▸")
-		line1 = cursor + line1[1:]
+	var tagLine string
+	if len(mi.item.Tags) > 0 {
+		var tags []string
+		for _, t := range mi.item.Tags {
+			tags = append(tags, lipgloss.NewStyle().Foreground(catColor).Render("#"+t))
+		}
+		tagLine = "     " + strings.Join(tags, " ")
 	}
 
-	fmt.Fprintf(w, "%s\n%s", line1, line2)
+	border := lipgloss.NewStyle().Foreground(catColor)
+	if selected {
+		border = border.Bold(true)
+	}
+	separator := border.Render("     " + strings.Repeat("─", max(m.Width()-10, 20)))
+
+	fmt.Fprintf(w, "%s\n%s\n%s%s", line1, line2, tagLine, separator)
 }
 
 type Marketplace struct {
@@ -78,14 +103,18 @@ type Marketplace struct {
 	width        int
 	height       int
 	err          error
-	SelectedItem *registry.MarketplaceItem
+	SelectedItem  *registry.MarketplaceItem
+	selected      map[string]bool
+	SelectedBatch []registry.MarketplaceItem
 }
 
 func NewMarketplace() Marketplace {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 
-	l := list.New(nil, marketplaceDelegate{}, 0, 0)
+	sel := make(map[string]bool)
+
+	l := list.New(nil, marketplaceDelegate{selected: sel}, 0, 0)
 	l.Title = ""
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(true)
@@ -95,10 +124,15 @@ func NewMarketplace() Marketplace {
 	l.KeyMap.Quit = key.NewBinding(key.WithDisabled())
 
 	return Marketplace{
-		list:    l,
-		spinner: sp,
-		loading: true,
+		list:     l,
+		spinner:  sp,
+		loading:  true,
+		selected: sel,
 	}
+}
+
+func (m Marketplace) SelectedCount() int {
+	return len(m.selected)
 }
 
 func (m Marketplace) Init() tea.Cmd {
@@ -133,6 +167,40 @@ func (m Marketplace) Update(msg tea.Msg) (Marketplace, tea.Cmd) {
 			case "right", "l":
 				m.catIndex = (m.catIndex + 1) % len(categories)
 				m.applyFilter()
+			case " ":
+				if item, ok := m.list.SelectedItem().(marketplaceItem); ok {
+					name := item.item.Name
+					if m.selected[name] {
+						delete(m.selected, name)
+					} else {
+						m.selected[name] = true
+					}
+				}
+				return m, nil
+			case "a":
+				if len(m.selected) == len(m.list.Items()) {
+					for k := range m.selected {
+						delete(m.selected, k)
+					}
+				} else {
+					for _, li := range m.list.Items() {
+						if mi, ok := li.(marketplaceItem); ok {
+							m.selected[mi.item.Name] = true
+						}
+					}
+				}
+				return m, nil
+			case "I":
+				if len(m.selected) > 0 {
+					var batch []registry.MarketplaceItem
+					for _, p := range m.allItems {
+						if m.selected[p.Name] {
+							batch = append(batch, p)
+						}
+					}
+					m.SelectedBatch = batch
+					return m, nil
+				}
 			case "enter":
 				if item, ok := m.list.SelectedItem().(marketplaceItem); ok {
 					selected := item.item
@@ -164,14 +232,44 @@ func (m Marketplace) View() string {
 
 	sb.WriteString("\n  ")
 	for i, cat := range categories {
+		icon := ""
+		if cat != "all" {
+			icon = common.CategoryIcons[cat] + " "
+		}
 		label := strings.ToUpper(cat[:1]) + cat[1:]
 		if i == m.catIndex {
-			sb.WriteString(common.StyleActiveTab.Render(label))
+			catColor := common.CategoryColor(cat)
+			if cat == "all" {
+				catColor = common.ColorPrimary
+			}
+			style := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("0")).
+				Background(catColor).
+				Padding(0, 2)
+			sb.WriteString(style.Render(icon + label))
 		} else {
-			sb.WriteString(common.StyleInactiveTab.Render(label))
+			sb.WriteString(common.StyleInactiveTab.Render(icon + label))
 		}
 	}
+
+	count := len(m.list.Items())
+	sb.WriteString("  " + common.StyleDim.Render(fmt.Sprintf("(%d)", count)))
 	sb.WriteString("\n")
+
+	if selCount := len(m.selected); selCount > 0 {
+		selBadge := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("0")).
+			Background(common.ColorSuccess).
+			Padding(0, 1).
+			Render(fmt.Sprintf("✓ %d selected", selCount))
+		sb.WriteString("  " + selBadge + "  ")
+		sb.WriteString(common.StyleDim.Render("press ") +
+			lipgloss.NewStyle().Bold(true).Foreground(common.ColorSuccess).Render("I") +
+			common.StyleDim.Render(" to batch install"))
+		sb.WriteString("\n")
+	}
 
 	if m.loading {
 		sb.WriteString("\n  " + m.spinner.View() + " Loading marketplace...\n")
@@ -190,6 +288,13 @@ func (m Marketplace) View() string {
 
 func (m *Marketplace) ClearSelection() {
 	m.SelectedItem = nil
+}
+
+func (m *Marketplace) ClearBatch() {
+	m.SelectedBatch = nil
+	for k := range m.selected {
+		delete(m.selected, k)
+	}
 }
 
 func (m *Marketplace) applyFilter() {
