@@ -2,6 +2,7 @@ package tui
 
 import (
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/CaptShanks/shipwright/cli/internal/tui/common"
@@ -121,6 +122,35 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	sizeMsg := tea.WindowSizeMsg{Width: a.width, Height: a.height - 4}
+
+	// Data and spinner messages must reach their target view regardless of
+	// which view is active, since fetches start at Init time.
+	switch msg.(type) {
+	case common.MarketplaceFetchedMsg, spinner.TickMsg:
+		if a.activeView != ViewMarketplace {
+			var cmd tea.Cmd
+			a.marketplace, cmd = a.marketplace.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+	}
+	switch msg.(type) {
+	case common.StateFetchedMsg:
+		if a.activeView != ViewDashboard {
+			var cmd tea.Cmd
+			a.dashboard, cmd = a.dashboard.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+		if a.activeView != ViewInstalled {
+			var cmd2 tea.Cmd
+			a.installed, cmd2 = a.installed.Update(msg)
+			cmds = append(cmds, cmd2)
+		}
+		if a.activeView != ViewDetail {
+			var cmd3 tea.Cmd
+			a.detail, cmd3 = a.detail.Update(msg)
+			cmds = append(cmds, cmd3)
+		}
+	}
 
 	switch a.activeView {
 	case ViewDashboard:
