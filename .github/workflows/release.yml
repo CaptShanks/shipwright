@@ -180,6 +180,14 @@ jobs:
             echo "See [commit history](https://github.com/CaptShanks/shipwright/commits/${GITHUB_REF_NAME}) for changes." >> release-body.md
           fi
 
+      - name: Push Go submodule tag
+        run: |
+          CLI_TAG="cli/${GITHUB_REF_NAME}"
+          if ! git rev-parse "$CLI_TAG" >/dev/null 2>&1; then
+            git tag "$CLI_TAG" "${GITHUB_REF_NAME}"
+            git push origin "$CLI_TAG"
+          fi
+
       - uses: softprops/action-gh-release@v2
         with:
           body_path: release-body.md
