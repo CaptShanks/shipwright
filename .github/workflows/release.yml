@@ -49,14 +49,103 @@ jobs:
           name: ship-${{ matrix.os }}-${{ matrix.arch }}
           path: cli/ship-*
 
-  release:
-    name: Create GitHub Release
-    needs: [build]
+  changelog:
+    name: Generate changelog
     runs-on: ubuntu-latest
+    outputs:
+      body: ${{ steps.changelog.outputs.body }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          CURRENT_TAG="${GITHUB_REF_NAME}"
+          PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${CURRENT_TAG}$" | head -1 || true)
+
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="$(git rev-list --max-parents=0 HEAD)..HEAD"
+            RANGE_DESC="all commits up to ${CURRENT_TAG}"
+          else
+            RANGE="${PREV_TAG}..${CURRENT_TAG}"
+            RANGE_DESC="${PREV_TAG} to ${CURRENT_TAG}"
+          fi
+
+          GIT_LOG=$(git log "$RANGE" --format='%h %s (%an, %as)' -- cli/ || true)
+          FULL_LOG=$(git log "$RANGE" --format='%h %s (%an, %as)' || true)
+
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::warning::ANTHROPIC_API_KEY not set, falling back to git log"
+            BODY=$(cat <<FALLBACK
+          ## Changes since ${PREV_TAG:-"initial commit"}
+
+          ### CLI
+          $(echo "$GIT_LOG" | sed 's/^/- /')
+
+          ### Other
+          $(echo "$FULL_LOG" | grep -v "$(echo "$GIT_LOG")" | sed 's/^/- /' || true)
+          FALLBACK
+          )
+            EOF_DELIM="__BODY_EOF_$(date +%s)__"
+            {
+              echo "body<<${EOF_DELIM}"
+              echo "$BODY"
+              echo "${EOF_DELIM}"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          AGENT_DEF=$(cat plugins/changelog-generator/agents/changelog-generator.md)
+
+          PAYLOAD=$(jq -n \
+            --arg system "$AGENT_DEF" \
+            --arg prompt "Generate a changelog for the Ship CLI release ${CURRENT_TAG}.
+          Commit range: ${RANGE_DESC}
+
+          Focus only on changes under the cli/ directory. Format for a GitHub Release (markdown).
+          Keep it concise — this is a CLI tool, not a library.
+          Do not include a full commit list section.
+
+          Git log (cli/ only):
+          ${GIT_LOG}
+
+          Full git log (all files):
+          ${FULL_LOG}" \
+            '{
+              model: "claude-sonnet-4-20250514",
+              max_tokens: 4096,
+              system: $system,
+              messages: [{role: "user", content: $prompt}]
+            }')
+
+          RESPONSE=$(curl -s -f https://api.anthropic.com/v1/messages \
+            -H "x-api-key: ${ANTHROPIC_API_KEY}" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d "$PAYLOAD")
+
+          CHANGELOG=$(echo "$RESPONSE" | jq -r '.content[0].text')
+
+          EOF_DELIM="__BODY_EOF_$(date +%s)__"
+          {
+            echo "body<<${EOF_DELIM}"
+            echo "$CHANGELOG"
+            echo "${EOF_DELIM}"
+          } >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Create GitHub Release
+    needs: [build, changelog]
+    if: always() && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4
         with:
@@ -67,48 +156,28 @@ jobs:
         working-directory: artifacts
         run: sha256sum ship-* > checksums.txt
 
-      - name: Build release notes
-        id: notes
+      - name: Write release body
+        env:
+          CHANGELOG: ${{ needs.changelog.outputs.body }}
         run: |
-          set -euo pipefail
-
-          CURRENT_TAG="${GITHUB_REF_NAME}"
-          PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${CURRENT_TAG}$" | head -1 || true)
-
-          if [ -z "$PREV_TAG" ]; then
-            RANGE="$(git rev-list --max-parents=0 HEAD)..HEAD"
-            RANGE_DESC="Initial release"
-          else
-            RANGE="${PREV_TAG}..${CURRENT_TAG}"
-            RANGE_DESC="Changes since ${PREV_TAG}"
-          fi
-
-          CLI_COMMITS=$(git log "$RANGE" --format='- %s (%h)' -- cli/ || true)
-          OTHER_COMMITS=$(git log "$RANGE" --format='- %s (%h)' -- ':!cli/' || true)
-
           {
             echo '## Install'
             echo
             echo '**Via Go:**'
             echo '```bash'
-            echo 'go install github.com/CaptShanks/shipwright/cli/cmd/ship@latest'
+            echo "go install github.com/CaptShanks/shipwright/cli/cmd/ship@${GITHUB_REF_NAME}"
             echo '```'
             echo
             echo '**Via binary:** download the appropriate archive below, extract, and place `ship` in your PATH.'
+            echo
+            echo '---'
+            echo
           } > release-body.md
 
-          printf '\n## %s\n\n' "$RANGE_DESC" >> release-body.md
-
-          if [ -n "$CLI_COMMITS" ]; then
-            printf '### CLI\n\n%s\n' "$CLI_COMMITS" >> release-body.md
-          fi
-
-          if [ -n "$OTHER_COMMITS" ]; then
-            printf '\n### Other\n\n%s\n' "$OTHER_COMMITS" >> release-body.md
-          fi
-
-          if [ -z "$CLI_COMMITS" ] && [ -z "$OTHER_COMMITS" ]; then
-            echo "No changes in this release." >> release-body.md
+          if [ -n "$CHANGELOG" ]; then
+            echo "$CHANGELOG" >> release-body.md
+          else
+            echo "See [commit history](https://github.com/CaptShanks/shipwright/commits/${GITHUB_REF_NAME}) for changes." >> release-body.md
           fi
 
       - uses: softprops/action-gh-release@v2
